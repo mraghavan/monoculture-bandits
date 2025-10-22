@@ -22,6 +22,7 @@ def simulate_independent_agents(num_agents, num_steps, N0):
     bandit = Bandit()
     # Each agent gets its own randomly drawn prior
     agents = [Agent(N0=N0) for _ in range(num_agents)]
+    reward_history = []
 
     for step in range(num_steps):
         # Cycle through the agents to distribute the arm pulls
@@ -31,13 +32,18 @@ def simulate_independent_agents(num_agents, num_steps, N0):
 
         # Only the agent who acted updates its belief
         agent_to_act.update_belief(arm, reward)
+        reward_history.append((arm, reward))
 
-    # Determine the final choice by majority vote
-    final_choices = [agent.choose_arm() for agent in agents]
-    if not final_choices:
-        return True # Or handle as appropriate if num_agents can be 0
+    # Success is determined by an "all-seeing" agent who observes the
+    # entire reward history.
+    if num_agents == 0:
+        return False
 
-    votes = np.bincount(final_choices, minlength=len(bandit.p_arms))
-    majority_choice = np.argmax(votes)
+    # We simulate this by creating a new agent and replaying the reward history.
+    # This ensures the omniscient agent has a single prior and incorporates all observations.
+    omniscient_agent = Agent(num_arms=len(bandit.p_arms), N0=N0)
+    for arm, reward in reward_history:
+        omniscient_agent.update_belief(arm, reward)
 
-    return majority_choice == bandit.best_arm
+    final_choice = omniscient_agent.choose_arm()
+    return final_choice == bandit.best_arm
