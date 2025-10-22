@@ -32,12 +32,20 @@ def simulate_independent_agents(num_agents, num_steps, N0):
         # Only the agent who acted updates its belief
         agent_to_act.update_belief(arm, reward)
 
-    # Determine the final choice by majority vote
-    final_choices = [agent.choose_arm() for agent in agents]
-    if not final_choices:
-        return True # Or handle as appropriate if num_agents can be 0
+    # Success is determined by an "all-seeing" agent who observes the
+    # entire reward history.
+    if num_agents == 0:
+        return False
 
-    votes = np.bincount(final_choices, minlength=len(bandit.p_arms))
-    majority_choice = np.argmax(votes)
+    # We simulate this by creating a new agent and giving it the aggregated
+    # beliefs of all independent agents. The N0 for this agent's prior is
+    # not used since we overwrite the beliefs, but we pass it for consistency.
+    omniscient_agent = Agent(num_arms=len(bandit.p_arms), N0=N0)
 
-    return majority_choice == bandit.best_arm
+    # Each agent's belief is its prior + its observations. Summing them up is
+    # like one agent with a summed prior who saw all observations.
+    aggregated_beliefs = np.sum([agent.beliefs for agent in agents], axis=0)
+    omniscient_agent.beliefs = aggregated_beliefs
+
+    final_choice = omniscient_agent.choose_arm()
+    return final_choice == bandit.best_arm
