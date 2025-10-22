@@ -14,14 +14,19 @@ def main():
         single_agent_outcomes = np.array([simulate_single_agent(num_steps, N0) for _ in range(num_trials)])
         independent_agents_outcomes = np.array([simulate_independent_agents(num_agents, num_steps, N0) for _ in range(num_trials)])
 
+        p = 1 - np.mean(single_agent_outcomes)
         results[N0] = {
             'Single Agent': {
-                'failure_rate': 1 - np.mean(single_agent_outcomes),
+                'failure_rate': p,
                 'std_err': np.std(single_agent_outcomes) / np.sqrt(num_trials)
             },
             'Independent Agents': {
                 'failure_rate': 1 - np.mean(independent_agents_outcomes),
                 'std_err': np.std(independent_agents_outcomes) / np.sqrt(num_trials)
+            },
+            'Theoretical p^n': {
+                'failure_rate': p**num_agents,
+                'std_err': 0  # No variance in a theoretical calculation
             }
         }
 
@@ -32,12 +37,24 @@ def main():
 
     # Plotting the results
     labels = list(results[N0_values[0]].keys())
-    for N0 in N0_values:
+    width = 0.2  # the width of the bars
+
+    # Create a figure and a set of subplots
+    fig, ax = plt.subplots()
+
+    # Iterate over N0_values to plot each as a separate group of bars
+    for i, N0 in enumerate(N0_values):
         failure_rates = [results[N0][label]['failure_rate'] for label in labels]
         std_errs = [results[N0][label]['std_err'] for label in labels]
-        plt.errorbar(labels, failure_rates, yerr=std_errs, marker='o', linestyle='None', label=f'N0 = {N0}', capsize=5)
 
-    plt.xlabel('Condition')
+        # The x locations for the groups
+        x = np.arange(len(labels)) + i * width
+
+        ax.errorbar(x, failure_rates, yerr=std_errs, marker='o', linestyle='None', label=f'N0 = {N0}', capsize=5)
+
+    ax.set_xlabel('Condition')
+    ax.set_xticks(np.arange(len(labels)) + width * (len(N0_values) - 1) / 2)
+    ax.set_xticklabels(labels)
     plt.ylabel('Failure Rate')
     plt.title('Failure Rate of Greedy Algorithm in a Bandit Problem')
     plt.legend()
