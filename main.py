@@ -1,4 +1,4 @@
-from src.simulation import simulate_single_agent, simulate_shared_information, simulate_independent_agents
+from src.simulation import simulate_single_agent, simulate_independent_agents
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -12,12 +12,10 @@ def main():
 
     for N0 in N0_values:
         single_agent_correct = np.mean([simulate_single_agent(num_steps, N0) for _ in range(num_trials)])
-        shared_info_correct = np.mean([simulate_shared_information(num_agents, num_steps, N0) for _ in range(num_trials)])
         independent_agents_correct = np.mean([simulate_independent_agents(num_agents, num_steps, N0) for _ in range(num_trials)])
 
         results[N0] = {
             'Single Agent': 1 - single_agent_correct,
-            'Shared Information': 1 - shared_info_correct,
             'Independent Agents': 1 - independent_agents_correct
         }
 

@@ -14,36 +14,6 @@ def simulate_single_agent(num_steps, N0):
         agent.update_belief(arm, reward)
     return agent.choose_arm() == bandit.best_arm
 
-def simulate_shared_information(num_agents, num_steps, N0):
-    """
-    Simulates multiple agents with a common prior who all observe the same information.
-    The total number of pulls is `num_steps`.
-    """
-    bandit = Bandit()
-
-    # Create a single common prior for all agents
-    common_prior_agent = Agent(N0=N0)
-    common_beliefs = np.copy(common_prior_agent.beliefs)
-
-    agents = []
-    for _ in range(num_agents):
-        agent = Agent(N0=0) # N0=0 to avoid re-initializing prior
-        agent.beliefs = np.copy(common_beliefs)
-        agents.append(agent)
-
-    for step in range(num_steps):
-        # All agents have identical beliefs, so they will all choose the same arm.
-        # We can just use the first agent's choice.
-        arm = agents[0].choose_arm()
-        reward = bandit.pull(arm)
-
-        # All agents observe the result and update their beliefs.
-        for agent in agents:
-            agent.update_belief(arm, reward)
-
-    # Since all beliefs are identical, the final choice is the same for everyone.
-    return agents[0].choose_arm() == bandit.best_arm
-
 def simulate_independent_agents(num_agents, num_steps, N0):
     """
     Simulates multiple agents with independent priors who do not share information.

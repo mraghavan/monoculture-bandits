@@ -1,6 +1,6 @@
 # monoculture-bandits
 
-This project simulates a 2-armed Bayesian bandit problem to analyze the failure rate of a greedy (myopic) agent. The simulation compares the failure rate across three conditions: a single agent, multiple agents who share all information, and multiple agents who learn independently.
+This project simulates a 2-armed Bayesian bandit problem to analyze the failure rate of a greedy (myopic) agent. The simulation compares the failure rate between two conditions: a single agent and multiple agents who learn independently.
 
 ## Setup and Usage
 
