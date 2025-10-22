@@ -11,24 +11,31 @@ def main():
     results = {}
 
     for N0 in N0_values:
-        single_agent_correct = np.mean([simulate_single_agent(num_steps, N0) for _ in range(num_trials)])
-        independent_agents_correct = np.mean([simulate_independent_agents(num_agents, num_steps, N0) for _ in range(num_trials)])
+        single_agent_outcomes = np.array([simulate_single_agent(num_steps, N0) for _ in range(num_trials)])
+        independent_agents_outcomes = np.array([simulate_independent_agents(num_agents, num_steps, N0) for _ in range(num_trials)])
 
         results[N0] = {
-            'Single Agent': 1 - single_agent_correct,
-            'Independent Agents': 1 - independent_agents_correct
+            'Single Agent': {
+                'failure_rate': 1 - np.mean(single_agent_outcomes),
+                'std_err': np.std(single_agent_outcomes) / np.sqrt(num_trials)
+            },
+            'Independent Agents': {
+                'failure_rate': 1 - np.mean(independent_agents_outcomes),
+                'std_err': np.std(independent_agents_outcomes) / np.sqrt(num_trials)
+            }
         }
 
     for N0, data in results.items():
         print(f"Results for N0 = {N0}:")
-        for condition, failure_rate in data.items():
-            print(f"  {condition}: Failure Rate = {failure_rate:.4f}")
+        for condition, values in data.items():
+            print(f"  {condition}: Failure Rate = {values['failure_rate']:.4f} +/- {values['std_err']:.4f}")
 
     # Plotting the results
     labels = list(results[N0_values[0]].keys())
     for N0 in N0_values:
-        failure_rates = [results[N0][label] for label in labels]
-        plt.plot(labels, failure_rates, marker='o', label=f'N0 = {N0}')
+        failure_rates = [results[N0][label]['failure_rate'] for label in labels]
+        std_errs = [results[N0][label]['std_err'] for label in labels]
+        plt.errorbar(labels, failure_rates, yerr=std_errs, marker='o', linestyle='None', label=f'N0 = {N0}', capsize=5)
 
     plt.xlabel('Condition')
     plt.ylabel('Failure Rate')
