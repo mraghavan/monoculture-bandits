@@ -31,21 +31,12 @@ class Agent:
         return best_arm
 
     def update(self, arm_idx, reward):
-        # Bayesian update for Gaussian distribution with known variance
         prior_mean = self.priors[arm_idx]['mean']
         prior_std_dev = self.priors[arm_idx]['std_dev']
         prior_var = prior_std_dev**2
-
-        # The variance of the arm's reward is assumed to be 1.
         reward_var = 1.0
-
-        # Calculate posterior variance (or precision)
         post_var = 1.0 / (1.0 / prior_var + 1.0 / reward_var)
-
-        # Calculate posterior mean
         post_mean = (prior_mean / prior_var + reward / reward_var) * post_var
-
-        # Update priors
         self.priors[arm_idx]['mean'] = post_mean
         self.priors[arm_idx]['std_dev'] = np.sqrt(post_var)
         self.priors[arm_idx]['n_pulls'] += 1
@@ -104,18 +95,27 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--n_agents", type=int, default=9, help="Number of agents")
     parser.add_argument("-k", "--n_arms", type=int, default=10, help="Number of arms")
     parser.add_argument("-t", "--n_rounds", type=int, default=100, help="Number of rounds")
+    parser.add_argument("--num_simulations", type=int, default=1000, help="Number of simulations to average over")
     args = parser.parse_args()
 
-    np.random.seed(42)
+    total_monoculture_regret = 0
+    total_polyculture_regret = 0
 
-    arms = [Arm(np.random.normal(0, 1), 1) for _ in range(args.n_arms)]
+    print(f"Running {args.num_simulations} simulations...")
 
-    print("Running monoculture simulation...")
-    monoculture_sim = Simulation(args.n_agents, args.n_arms, args.n_rounds, is_monoculture=True, arms=arms)
-    monoculture_regret = monoculture_sim.run()
-    print(f"Total regret in monoculture setting: {monoculture_regret}\n")
+    for i in range(args.num_simulations):
+        np.random.seed(i)
+        arms = [Arm(np.random.normal(0, 1), 1) for _ in range(args.n_arms)]
 
-    print("Running polyculture simulation...")
-    polyculture_sim = Simulation(args.n_agents, args.n_arms, args.n_rounds, is_monoculture=False, arms=arms)
-    polyculture_regret = polyculture_sim.run()
-    print(f"Total regret in polyculture setting: {polyculture_regret}")
+        monoculture_sim = Simulation(args.n_agents, args.n_arms, args.n_rounds, is_monoculture=True, arms=arms)
+        total_monoculture_regret += monoculture_sim.run()
+
+        polyculture_sim = Simulation(args.n_agents, args.n_arms, args.n_rounds, is_monoculture=False, arms=arms)
+        total_polyculture_regret += polyculture_sim.run()
+
+    avg_monoculture_regret = total_monoculture_regret / args.num_simulations
+    avg_polyculture_regret = total_polyculture_regret / args.num_simulations
+
+    print(f"\nAverage Total Regret (over {args.num_simulations} runs):")
+    print(f"  Monoculture: {avg_monoculture_regret}")
+    print(f"  Polyculture: {avg_polyculture_regret}")
