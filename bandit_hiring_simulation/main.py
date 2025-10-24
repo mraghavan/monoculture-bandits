@@ -4,20 +4,15 @@ from collections import defaultdict
 
 def gini(x):
     """Calculate the Gini coefficient of a numpy array."""
-    # The array must be non-negative
     x = np.asarray(x)
     if np.amin(x) < 0:
         raise ValueError("Input array must be non-negative")
-    # Values must be sorted
     x = np.sort(x)
     n = len(x)
     if n == 0:
-        return 0.0 # Gini of an empty set is 0
-    # Gini coefficient calculation
+        return 0.0
     index = np.arange(1, n + 1)
-    # Formula for Gini coefficient
     return (np.sum((2 * index - n - 1) * x)) / (n * np.sum(x)) if np.sum(x) != 0 else 0.0
-
 
 class Arm:
     def __init__(self, mean, std_dev):
@@ -38,10 +33,8 @@ class Agent:
     def choose_arm(self, available_arms):
         best_arm = -1
         max_expected_reward = -np.inf
-
         if not available_arms:
             return best_arm
-
         for arm_idx in available_arms:
             if self.priors[arm_idx]['mean'] > max_expected_reward:
                 max_expected_reward = self.priors[arm_idx]['mean']
@@ -60,11 +53,12 @@ class Agent:
         self.priors[arm_idx]['n_pulls'] += 1
 
 class Simulation:
-    def __init__(self, n_agents, n_arms, n_rounds, is_monoculture=True, arms=None):
+    def __init__(self, n_agents, n_arms, n_rounds, is_monoculture=True, arms=None, use_biased_priors=False):
         self.n_agents = n_agents
         self.n_arms = n_arms
         self.n_rounds = n_rounds
         self.is_monoculture = is_monoculture
+        self.use_biased_priors = use_biased_priors
 
         if arms:
             self.arms = arms
@@ -74,9 +68,17 @@ class Simulation:
         self.agents = []
         if is_monoculture:
             priors = [{'mean': 0, 'std_dev': 10, 'n_pulls': 0} for _ in range(n_arms)]
+            if self.use_biased_priors:
+                true_means = np.array([arm.mean for arm in self.arms])
+                # Find a mediocre arm (around the 50th percentile)
+                median_arm_index = np.argsort(true_means)[len(true_means) // 2]
+                # Set a high prior for this mediocre arm
+                priors[median_arm_index]['mean'] = 3.0
+
             for _ in range(n_agents):
                 self.agents.append(Agent(n_arms, initial_priors=priors))
         else:
+            # Polyculture agents have diverse, unbiased priors
             for _ in range(n_agents):
                 priors = [{'mean': np.random.normal(0, 1), 'std_dev': 10, 'n_pulls': 0} for _ in range(n_arms)]
                 self.agents.append(Agent(n_arms, initial_priors=priors))
@@ -108,24 +110,20 @@ class Simulation:
                     reward = self.arms[chosen_arm].pull()
                     rewards[chosen_arm] = reward
 
-            # Update pull counts for Gini coefficient
             for arm_idx in pulled_arms_indices:
                 arm_pull_counts[arm_idx] += 1
 
-            # Update regrets
             actual_reward = sum(rewards.values())
             total_realized_regret += optimal_reward - actual_reward
 
             expected_reward_of_pulled = sum(true_means[i] for i in pulled_arms_indices)
             total_bayesian_regret += optimal_reward - expected_reward_of_pulled
 
-            # Update best/worst arm pull counts
             if best_arm_index in pulled_arms_indices:
                 best_arm_pulled_count += 1
             if worst_arm_index in pulled_arms_indices:
                 worst_arm_pulled_count += 1
 
-            # Update agents
             for agent in self.agents:
                 for arm_idx, reward_val in rewards.items():
                     agent.update(arm_idx, reward_val)
@@ -146,18 +144,21 @@ if __name__ == "__main__":
     parser.add_argument("-k", "--n_arms", type=int, default=10, help="Number of arms")
     parser.add_argument("-t", "--n_rounds", type=int, default=100, help="Number of rounds")
     parser.add_argument("--num_simulations", type=int, default=10, help="Number of simulations to average over")
+    parser.add_argument("--biased", action='store_true', help="Use biased priors for monoculture")
     args = parser.parse_args()
 
     monoculture_totals = defaultdict(float)
     polyculture_totals = defaultdict(float)
 
     print(f"Running {args.num_simulations} simulations with n={args.n_agents}, k={args.n_arms}, t={args.n_rounds}...")
+    if args.biased:
+        print("!!! Monoculture priors are BIASED towards a mediocre arm. !!!")
 
     for i in range(args.num_simulations):
         np.random.seed(i)
         arms = [Arm(np.random.normal(0, 1), 1) for _ in range(args.n_arms)]
 
-        monoculture_sim = Simulation(args.n_agents, args.n_arms, args.n_rounds, is_monoculture=True, arms=arms)
+        monoculture_sim = Simulation(args.n_agents, args.n_arms, args.n_rounds, is_monoculture=True, arms=arms, use_biased_priors=args.biased)
         mono_results = monoculture_sim.run()
         for key, value in mono_results.items():
             monoculture_totals[key] += value
@@ -167,7 +168,6 @@ if __name__ == "__main__":
         for key, value in poly_results.items():
             polyculture_totals[key] += value
 
-    # Calculate averages
     monoculture_avg = {key: value / args.num_simulations for key, value in monoculture_totals.items()}
     polyculture_avg = {key: value / args.num_simulations for key, value in polyculture_totals.items()}
 
