@@ -1,10 +1,9 @@
 import numpy as np
 import argparse
 from collections import defaultdict
-from scipy.stats import beta
+import random
 
 def gini(x):
-    """Calculate the Gini coefficient of a numpy array."""
     x = np.asarray(x)
     if np.amin(x) < 0:
         raise ValueError("Input array must be non-negative")
@@ -15,161 +14,163 @@ def gini(x):
     index = np.arange(1, n + 1)
     return (np.sum((2 * index - n - 1) * x)) / (n * np.sum(x)) if np.sum(x) != 0 else 0.0
 
-class Arm:
-    def __init__(self, p):
-        self.p = p # Probability of success
-
+# --- Gaussian Model ---
+class GaussianArm:
+    def __init__(self, mean, std_dev=1):
+        self.mean = mean
+        self.std_dev = std_dev
     def pull(self):
-        return np.random.binomial(1, self.p)
+        return np.random.normal(self.mean, self.std_dev)
 
-class Agent:
+class GaussianAgent:
     def __init__(self, n_arms, initial_priors=None):
         self.n_arms = n_arms
         if initial_priors:
             self.priors = [p.copy() for p in initial_priors]
         else:
-            # Default is an uninformative prior Beta(1, 1)
+            self.priors = [{'mean': 0, 'std_dev': 10, 'n_pulls': 0} for _ in range(n_arms)]
+
+    def choose_arm(self, available_arms):
+        best_arm, max_expected_reward = -1, -np.inf
+        for arm_idx in available_arms:
+            if self.priors[arm_idx]['mean'] > max_expected_reward:
+                max_expected_reward, best_arm = self.priors[arm_idx]['mean'], arm_idx
+        return best_arm
+
+    def update(self, arm_idx, reward):
+        prior_mean, prior_std_dev = self.priors[arm_idx]['mean'], self.priors[arm_idx]['std_dev']
+        prior_var, reward_var = prior_std_dev**2, 1.0
+        post_var = 1.0 / (1.0 / prior_var + 1.0 / reward_var)
+        post_mean = (prior_mean / prior_var + reward / reward_var) * post_var
+        self.priors[arm_idx].update({'mean': post_mean, 'std_dev': np.sqrt(post_var), 'n_pulls': self.priors[arm_idx]['n_pulls'] + 1})
+
+# --- Bernoulli Model ---
+class BernoulliArm:
+    def __init__(self, p):
+        self.p = p
+    def pull(self):
+        return np.random.binomial(1, self.p)
+
+class BernoulliAgent:
+    def __init__(self, n_arms, initial_priors=None):
+        self.n_arms = n_arms
+        if initial_priors:
+            self.priors = [p.copy() for p in initial_priors]
+        else:
             self.priors = [{'alpha': 1, 'beta': 1} for _ in range(n_arms)]
 
     def choose_arm(self, available_arms):
-        best_arm = -1
-        max_expected_reward = -1
-        if not available_arms:
-            return best_arm
-
+        best_arm, max_expected_reward = -1, -1
         for arm_idx in available_arms:
-            # Expected value of a Beta distribution is alpha / (alpha + beta)
-            expected_value = self.priors[arm_idx]['alpha'] / (self.priors[arm_idx]['alpha'] + self.priors[arm_idx]['beta'])
+            p = self.priors[arm_idx]
+            expected_value = p['alpha'] / (p['alpha'] + p['beta'])
             if expected_value > max_expected_reward:
-                max_expected_reward = expected_value
-                best_arm = arm_idx
+                max_expected_reward, best_arm = expected_value, arm_idx
         return best_arm
 
     def update(self, arm_idx, result):
-        # Beta-Bernoulli update
-        if result == 1: # Success
-            self.priors[arm_idx]['alpha'] += 1
-        else: # Failure
-            self.priors[arm_idx]['beta'] += 1
+        if result == 1: self.priors[arm_idx]['alpha'] += 1
+        else: self.priors[arm_idx]['beta'] += 1
 
+# --- Simulation ---
 class Simulation:
-    def __init__(self, n_agents, n_arms, n_rounds, is_monoculture=True, arms=None):
-        self.n_agents = n_agents
-        self.n_arms = n_arms
-        self.n_rounds = n_rounds
-        self.is_monoculture = is_monoculture
+    def __init__(self, n_agents, n_arms, n_rounds, arms, model='gaussian', culture='monoculture'):
+        self.n_agents, self.n_arms, self.n_rounds = n_agents, n_arms, n_rounds
+        self.arms, self.model, self.culture = arms, model, culture
 
-        if arms:
-            self.arms = arms
-        else:
-            # Arms now have a random probability of success
-            self.arms = [Arm(p=np.random.uniform(0, 1)) for _ in range(n_arms)]
+        AgentClass = GaussianAgent if model == 'gaussian' else BernoulliAgent
 
         self.agents = []
-        if is_monoculture:
-            # All agents start with the same uninformative prior Beta(1, 1)
-            priors = [{'alpha': 1, 'beta': 1} for _ in range(n_arms)]
+        if culture == 'monoculture':
+            priors = None # Agents will use default priors
             for _ in range(n_agents):
-                self.agents.append(Agent(n_arms, initial_priors=priors))
-        else:
-            # Polyculture agents have diverse, randomized priors
+                self.agents.append(AgentClass(n_arms, initial_priors=priors))
+        else: # Polyculture
             for _ in range(n_agents):
-                # Priors are randomized but keep the same mean as Beta(1,1) to be fair
-                alpha = np.random.uniform(0.5, 1.5)
-                beta_val = alpha
-                priors = [{'alpha': alpha, 'beta': beta_val} for _ in range(n_arms)]
-                self.agents.append(Agent(n_arms, initial_priors=priors))
+                if model == 'gaussian':
+                    priors = [{'mean': np.random.normal(0, 1), 'std_dev': 10, 'n_pulls': 0} for _ in range(n_arms)]
+                else: # bernoulli
+                    alpha = np.random.uniform(0.5, 1.5)
+                    priors = [{'alpha': alpha, 'beta': alpha} for _ in range(n_arms)]
+                self.agents.append(AgentClass(n_arms, initial_priors=priors))
 
     def run(self):
-        total_realized_regret = 0
-        total_bayesian_regret = 0
-        best_arm_pulled_count = 0
-        worst_arm_pulled_count = 0
         arm_pull_counts = np.zeros(self.n_arms)
+        stats = defaultdict(float)
 
-        true_means = np.array([arm.p for arm in self.arms]) # True mean is just the probability p
-        best_arm_index = np.argmax(true_means)
-        worst_arm_index = np.argmin(true_means)
+        true_means = np.array([arm.mean if self.model == 'gaussian' else arm.p for arm in self.arms])
+        best_arm_index, worst_arm_index = np.argmax(true_means), np.argmin(true_means)
+        optimal_reward = np.sum(np.sort(true_means)[::-1][:self.n_agents])
 
-        sorted_true_means = np.sort(true_means)[::-1]
-        optimal_reward = np.sum(sorted_true_means[:self.n_agents])
-
+        agent_order = list(range(self.n_agents))
         for _ in range(self.n_rounds):
-            available_arms = list(range(self.n_arms))
-            pulled_arms_indices = []
-            rewards = {}
+            if self.culture == 'polyculture_random':
+                random.shuffle(agent_order)
 
-            for agent_idx, agent in enumerate(self.agents):
+            available_arms = list(range(self.n_arms))
+            pulled_this_round, rewards = {}, {}
+
+            for agent_idx in agent_order:
+                agent = self.agents[agent_idx]
                 chosen_arm = agent.choose_arm(available_arms)
                 if chosen_arm != -1:
-                    pulled_arms_indices.append(chosen_arm)
                     available_arms.remove(chosen_arm)
                     reward = self.arms[chosen_arm].pull()
+                    pulled_this_round[agent_idx] = chosen_arm
                     rewards[chosen_arm] = reward
 
-            for arm_idx in pulled_arms_indices:
-                arm_pull_counts[arm_idx] += 1
-
-            actual_reward = sum(rewards.values())
-            total_realized_regret += optimal_reward - actual_reward
-
-            expected_reward_of_pulled = sum(true_means[i] for i in pulled_arms_indices)
-            total_bayesian_regret += optimal_reward - expected_reward_of_pulled
-
-            if best_arm_index in pulled_arms_indices:
-                best_arm_pulled_count += 1
-            if worst_arm_index in pulled_arms_indices:
-                worst_arm_pulled_count += 1
+            pulled_indices = list(rewards.keys())
+            arm_pull_counts[pulled_indices] += 1
+            stats['total_realized_regret'] += optimal_reward - sum(rewards.values())
+            stats['total_bayesian_regret'] += optimal_reward - sum(true_means[i] for i in pulled_indices)
+            if best_arm_index in pulled_indices: stats['best_arm_pulled_count'] += 1
+            if worst_arm_index in pulled_indices: stats['worst_arm_pulled_count'] += 1
 
             for agent in self.agents:
                 for arm_idx, reward_val in rewards.items():
                     agent.update(arm_idx, reward_val)
 
-        gini_coefficient = gini(arm_pull_counts)
-
-        return {
-            'total_realized_regret': total_realized_regret,
-            'total_bayesian_regret': total_bayesian_regret,
-            'frac_best_arm_pulled': best_arm_pulled_count / self.n_rounds,
-            'frac_worst_arm_pulled': worst_arm_pulled_count / self.n_rounds,
-            'gini_coefficient': gini_coefficient,
-        }
+        stats['frac_best_arm_pulled'] = stats['best_arm_pulled_count'] / self.n_rounds
+        stats['frac_worst_arm_pulled'] = stats['worst_arm_pulled_count'] / self.n_rounds
+        stats['gini_coefficient'] = gini(arm_pull_counts)
+        return {k: v for k, v in stats.items() if 'count' not in k}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run bandit simulations.")
-    parser.add_argument("-n", "--n_agents", type=int, default=9, help="Number of agents")
-    parser.add_argument("-k", "--n_arms", type=int, default=10, help="Number of arms")
+    parser.add_argument("-n", "--n_agents", type=int, default=90, help="Number of agents")
+    parser.add_argument("-k", "--n_arms", type=int, default=100, help="Number of arms")
     parser.add_argument("-t", "--n_rounds", type=int, default=100, help="Number of rounds")
-    parser.add_argument("--num_simulations", type=int, default=10, help="Number of simulations to average over")
+    parser.add_argument("--num_simulations", type=int, default=50, help="Number of simulations to average over")
+    parser.add_argument("--model", type=str, default='gaussian', choices=['gaussian', 'bernoulli'], help="Statistical model for arms and agents")
     args = parser.parse_args()
 
-    monoculture_totals = defaultdict(float)
-    polyculture_totals = defaultdict(float)
+    print(f"--- Running {args.model.upper()} Model ---")
 
-    print(f"Running {args.num_simulations} simulations with n={args.n_agents}, k={args.n_arms}, t={args.n_rounds}...")
+    setups = ['monoculture', 'polyculture_fixed', 'polyculture_random']
+    results = {setup: defaultdict(float) for setup in setups}
 
     for i in range(args.num_simulations):
         np.random.seed(i)
-        arms = [Arm(p=np.random.uniform(0, 1)) for _ in range(args.n_arms)]
+        random.seed(i)
+        if args.model == 'gaussian':
+            arms = [GaussianArm(np.random.normal(0, 1)) for _ in range(args.n_arms)]
+        else:
+            arms = [BernoulliArm(np.random.uniform(0, 1)) for _ in range(args.n_arms)]
 
-        monoculture_sim = Simulation(args.n_agents, args.n_arms, args.n_rounds, is_monoculture=True, arms=arms)
-        mono_results = monoculture_sim.run()
-        for key, value in mono_results.items():
-            monoculture_totals[key] += value
+        # Run simulations for each setup
+        sim_mono = Simulation(args.n_agents, args.n_arms, args.n_rounds, arms, args.model, 'monoculture').run()
+        sim_poly_fixed = Simulation(args.n_agents, args.n_arms, args.n_rounds, arms, args.model, 'polyculture_fixed').run()
+        sim_poly_random = Simulation(args.n_agents, args.n_arms, args.n_rounds, arms, args.model, 'polyculture_random').run()
 
-        polyculture_sim = Simulation(args.n_agents, args.n_arms, args.n_rounds, is_monoculture=False, arms=arms)
-        poly_results = polyculture_sim.run()
-        for key, value in poly_results.items():
-            polyculture_totals[key] += value
+        # Aggregate results
+        for key in sim_mono:
+            results['monoculture'][key] += sim_mono[key]
+            results['polyculture_fixed'][key] += sim_poly_fixed[key]
+            results['polyculture_random'][key] += sim_poly_random[key]
 
-    monoculture_avg = {key: value / args.num_simulations for key, value in monoculture_totals.items()}
-    polyculture_avg = {key: value / args.num_simulations for key, value in polyculture_totals.items()}
-
-    print("\n--- Averaged Results ---")
-    print("\nMonoculture:")
-    for key, value in monoculture_avg.items():
-        print(f"  {key.replace('_', ' ').title()}: {value:.4f}")
-
-    print("\nPolyculture:")
-    for key, value in polyculture_avg.items():
-        print(f"  {key.replace('_', ' ').title()}: {value:.4f}")
+    # Print averaged results
+    print(f"\n--- Averaged Results over {args.num_simulations} runs ---")
+    for setup_name, res in results.items():
+        print(f"\n{setup_name.replace('_', ' ').title()}:")
+        for key, value in res.items():
+            print(f"  {key.replace('_', ' ').title()}: {value / args.num_simulations:.4f}")
