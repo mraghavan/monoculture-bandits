@@ -1,5 +1,6 @@
 import numpy as np
 import argparse
+from collections import defaultdict
 
 class Arm:
     def __init__(self, mean, std_dev):
@@ -64,31 +65,56 @@ class Simulation:
                 self.agents.append(Agent(n_arms, initial_priors=priors))
 
     def run(self):
-        total_regret = 0
+        total_realized_regret = 0
+        total_bayesian_regret = 0
+        best_arm_pulled_count = 0
+        worst_arm_pulled_count = 0
+
+        true_means = np.array([arm.mean for arm in self.arms])
+        best_arm_index = np.argmax(true_means)
+        worst_arm_index = np.argmin(true_means)
+
+        # Sort true means and calculate optimal reward
+        sorted_true_means = np.sort(true_means)[::-1]
+        optimal_reward = np.sum(sorted_true_means[:self.n_agents])
+
         for _ in range(self.n_rounds):
             available_arms = list(range(self.n_arms))
-            pulled_arms = {}
+            pulled_arms_indices = []
             rewards = {}
 
             for agent_idx, agent in enumerate(self.agents):
                 chosen_arm = agent.choose_arm(available_arms)
                 if chosen_arm != -1:
-                    pulled_arms[agent_idx] = chosen_arm
+                    pulled_arms_indices.append(chosen_arm)
                     available_arms.remove(chosen_arm)
                     reward = self.arms[chosen_arm].pull()
-                    rewards[agent_idx] = reward
+                    rewards[chosen_arm] = reward
 
-            true_means = [arm.mean for arm in self.arms]
-            sorted_true_means = sorted(true_means, reverse=True)
-            optimal_reward = sum(sorted_true_means[:self.n_agents])
+            # Update regrets
             actual_reward = sum(rewards.values())
-            regret = optimal_reward - actual_reward
-            total_regret += regret
+            total_realized_regret += optimal_reward - actual_reward
 
+            expected_reward_of_pulled = sum(true_means[i] for i in pulled_arms_indices)
+            total_bayesian_regret += optimal_reward - expected_reward_of_pulled
+
+            # Update best/worst arm pull counts
+            if best_arm_index in pulled_arms_indices:
+                best_arm_pulled_count += 1
+            if worst_arm_index in pulled_arms_indices:
+                worst_arm_pulled_count += 1
+
+            # Update agents
             for agent in self.agents:
-                for agent_idx, arm_idx in pulled_arms.items():
-                    agent.update(arm_idx, rewards[agent_idx])
-        return total_regret
+                for arm_idx, reward_val in rewards.items():
+                    agent.update(arm_idx, reward_val)
+
+        return {
+            'total_realized_regret': total_realized_regret,
+            'total_bayesian_regret': total_bayesian_regret,
+            'frac_best_arm_pulled': best_arm_pulled_count / self.n_rounds,
+            'frac_worst_arm_pulled': worst_arm_pulled_count / self.n_rounds,
+        }
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run bandit simulations.")
@@ -98,24 +124,34 @@ if __name__ == "__main__":
     parser.add_argument("--num_simulations", type=int, default=1000, help="Number of simulations to average over")
     args = parser.parse_args()
 
-    total_monoculture_regret = 0
-    total_polyculture_regret = 0
+    monoculture_totals = defaultdict(float)
+    polyculture_totals = defaultdict(float)
 
-    print(f"Running {args.num_simulations} simulations...")
+    print(f"Running {args.num_simulations} simulations with n={args.n_agents}, k={args.n_arms}, t={args.n_rounds}...")
 
     for i in range(args.num_simulations):
         np.random.seed(i)
         arms = [Arm(np.random.normal(0, 1), 1) for _ in range(args.n_arms)]
 
         monoculture_sim = Simulation(args.n_agents, args.n_arms, args.n_rounds, is_monoculture=True, arms=arms)
-        total_monoculture_regret += monoculture_sim.run()
+        mono_results = monoculture_sim.run()
+        for key, value in mono_results.items():
+            monoculture_totals[key] += value
 
         polyculture_sim = Simulation(args.n_agents, args.n_arms, args.n_rounds, is_monoculture=False, arms=arms)
-        total_polyculture_regret += polyculture_sim.run()
+        poly_results = polyculture_sim.run()
+        for key, value in poly_results.items():
+            polyculture_totals[key] += value
 
-    avg_monoculture_regret = total_monoculture_regret / args.num_simulations
-    avg_polyculture_regret = total_polyculture_regret / args.num_simulations
+    # Calculate averages
+    monoculture_avg = {key: value / args.num_simulations for key, value in monoculture_totals.items()}
+    polyculture_avg = {key: value / args.num_simulations for key, value in polyculture_totals.items()}
 
-    print(f"\nAverage Total Regret (over {args.num_simulations} runs):")
-    print(f"  Monoculture: {avg_monoculture_regret}")
-    print(f"  Polyculture: {avg_polyculture_regret}")
+    print("\n--- Averaged Results ---")
+    print("\nMonoculture:")
+    for key, value in monoculture_avg.items():
+        print(f"  {key.replace('_', ' ').title()}: {value:.4f}")
+
+    print("\nPolyculture:")
+    for key, value in polyculture_avg.items():
+        print(f"  {key.replace('_', ' ').title()}: {value:.4f}")
