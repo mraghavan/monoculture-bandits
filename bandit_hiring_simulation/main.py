@@ -2,6 +2,23 @@ import numpy as np
 import argparse
 from collections import defaultdict
 
+def gini(x):
+    """Calculate the Gini coefficient of a numpy array."""
+    # The array must be non-negative
+    x = np.asarray(x)
+    if np.amin(x) < 0:
+        raise ValueError("Input array must be non-negative")
+    # Values must be sorted
+    x = np.sort(x)
+    n = len(x)
+    if n == 0:
+        return 0.0 # Gini of an empty set is 0
+    # Gini coefficient calculation
+    index = np.arange(1, n + 1)
+    # Formula for Gini coefficient
+    return (np.sum((2 * index - n - 1) * x)) / (n * np.sum(x)) if np.sum(x) != 0 else 0.0
+
+
 class Arm:
     def __init__(self, mean, std_dev):
         self.mean = mean
@@ -69,12 +86,12 @@ class Simulation:
         total_bayesian_regret = 0
         best_arm_pulled_count = 0
         worst_arm_pulled_count = 0
+        arm_pull_counts = np.zeros(self.n_arms)
 
         true_means = np.array([arm.mean for arm in self.arms])
         best_arm_index = np.argmax(true_means)
         worst_arm_index = np.argmin(true_means)
 
-        # Sort true means and calculate optimal reward
         sorted_true_means = np.sort(true_means)[::-1]
         optimal_reward = np.sum(sorted_true_means[:self.n_agents])
 
@@ -90,6 +107,10 @@ class Simulation:
                     available_arms.remove(chosen_arm)
                     reward = self.arms[chosen_arm].pull()
                     rewards[chosen_arm] = reward
+
+            # Update pull counts for Gini coefficient
+            for arm_idx in pulled_arms_indices:
+                arm_pull_counts[arm_idx] += 1
 
             # Update regrets
             actual_reward = sum(rewards.values())
@@ -109,11 +130,14 @@ class Simulation:
                 for arm_idx, reward_val in rewards.items():
                     agent.update(arm_idx, reward_val)
 
+        gini_coefficient = gini(arm_pull_counts)
+
         return {
             'total_realized_regret': total_realized_regret,
             'total_bayesian_regret': total_bayesian_regret,
             'frac_best_arm_pulled': best_arm_pulled_count / self.n_rounds,
             'frac_worst_arm_pulled': worst_arm_pulled_count / self.n_rounds,
+            'gini_coefficient': gini_coefficient,
         }
 
 if __name__ == "__main__":
@@ -121,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--n_agents", type=int, default=9, help="Number of agents")
     parser.add_argument("-k", "--n_arms", type=int, default=10, help="Number of arms")
     parser.add_argument("-t", "--n_rounds", type=int, default=100, help="Number of rounds")
-    parser.add_argument("--num_simulations", type=int, default=1000, help="Number of simulations to average over")
+    parser.add_argument("--num_simulations", type=int, default=10, help="Number of simulations to average over")
     args = parser.parse_args()
 
     monoculture_totals = defaultdict(float)
