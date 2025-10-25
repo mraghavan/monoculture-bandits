@@ -28,7 +28,7 @@ class GaussianAgent:
         if initial_priors:
             self.priors = [p.copy() for p in initial_priors]
         else:
-            self.priors = [{'mean': 0, 'std_dev': 10, 'n_pulls': 0} for _ in range(n_arms)]
+            self.priors = [{'mean': 0, 'std_dev': 0.5, 'n_pulls': 0} for _ in range(n_arms)]
 
     def choose_arm(self, available_arms):
         best_arm, max_expected_reward = -1, -np.inf
@@ -57,7 +57,7 @@ class BernoulliAgent:
         if initial_priors:
             self.priors = [p.copy() for p in initial_priors]
         else:
-            self.priors = [{'alpha': 1, 'beta': 1} for _ in range(n_arms)]
+            self.priors = [{'alpha': 10, 'beta': 10} for _ in range(n_arms)]
 
     def choose_arm(self, available_arms):
         best_arm, max_expected_reward = -1, -1
@@ -88,10 +88,11 @@ class Simulation:
         else: # Polyculture
             for _ in range(n_agents):
                 if model == 'gaussian':
-                    priors = [{'mean': np.random.normal(0, 1), 'std_dev': 10, 'n_pulls': 0} for _ in range(n_arms)]
+                    priors = [{'mean': np.random.normal(0, 1), 'std_dev': 0.5, 'n_pulls': 0} for _ in range(n_arms)]
                 else: # bernoulli
-                    alpha = np.random.uniform(0.5, 1.5)
-                    priors = [{'alpha': alpha, 'beta': alpha} for _ in range(n_arms)]
+                    alpha = np.random.uniform(9.5, 10.5)
+                    beta_val = 20 - alpha
+                    priors = [{'alpha': alpha, 'beta': beta_val} for _ in range(n_arms)]
                 self.agents.append(AgentClass(n_arms, initial_priors=priors))
 
     def run(self):
@@ -144,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default='gaussian', choices=['gaussian', 'bernoulli'], help="Statistical model for arms and agents")
     args = parser.parse_args()
 
-    print(f"--- Running {args.model.upper()} Model ---")
+    print(f"--- Running {args.model.upper()} Model (Priors Equalized) ---")
 
     setups = ['monoculture', 'polyculture_fixed', 'polyculture_random']
     results = {setup: defaultdict(float) for setup in setups}
