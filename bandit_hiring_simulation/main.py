@@ -23,12 +23,9 @@ class GaussianArm:
         return np.random.normal(self.mean, self.std_dev)
 
 class GaussianAgent:
-    def __init__(self, n_arms, initial_priors=None):
+    def __init__(self, n_arms, initial_priors):
         self.n_arms = n_arms
-        if initial_priors:
-            self.priors = [p.copy() for p in initial_priors]
-        else:
-            self.priors = [{'mean': 0, 'std_dev': 0.5, 'n_pulls': 0} for _ in range(n_arms)]
+        self.priors = [p.copy() for p in initial_priors]
 
     def choose_arm(self, available_arms):
         best_arm, max_expected_reward = -1, -np.inf
@@ -52,12 +49,9 @@ class BernoulliArm:
         return np.random.binomial(1, self.p)
 
 class BernoulliAgent:
-    def __init__(self, n_arms, initial_priors=None):
+    def __init__(self, n_arms, initial_priors):
         self.n_arms = n_arms
-        if initial_priors:
-            self.priors = [p.copy() for p in initial_priors]
-        else:
-            self.priors = [{'alpha': 10, 'beta': 10} for _ in range(n_arms)]
+        self.priors = [p.copy() for p in initial_priors]
 
     def choose_arm(self, available_arms):
         best_arm, max_expected_reward = -1, -1
@@ -79,20 +73,31 @@ class Simulation:
         self.arms, self.model, self.culture = arms, model, culture
 
         AgentClass = GaussianAgent if model == 'gaussian' else BernoulliAgent
-
         self.agents = []
+
         if culture == 'monoculture':
-            priors = None # Agents will use default priors
+            if model == 'gaussian':
+                shared_priors = [{'mean': np.random.normal(0, 1), 'std_dev': 0.5, 'n_pulls': 0} for _ in range(n_arms)]
+            else:
+                shared_priors = []
+                for _ in range(n_arms):
+                    alpha = np.random.uniform(9.5, 10.5)
+                    beta_val = 20 - alpha
+                    shared_priors.append({'alpha': alpha, 'beta': beta_val})
+
             for _ in range(n_agents):
-                self.agents.append(AgentClass(n_arms, initial_priors=priors))
-        else: # Polyculture
+                self.agents.append(AgentClass(n_arms, initial_priors=shared_priors))
+
+        else:
             for _ in range(n_agents):
                 if model == 'gaussian':
                     priors = [{'mean': np.random.normal(0, 1), 'std_dev': 0.5, 'n_pulls': 0} for _ in range(n_arms)]
-                else: # bernoulli
-                    alpha = np.random.uniform(9.5, 10.5)
-                    beta_val = 20 - alpha
-                    priors = [{'alpha': alpha, 'beta': beta_val} for _ in range(n_arms)]
+                else:
+                    priors = []
+                    for _ in range(n_arms):
+                        alpha = np.random.uniform(9.5, 10.5)
+                        beta_val = 20 - alpha
+                        priors.append({'alpha': alpha, 'beta': beta_val})
                 self.agents.append(AgentClass(n_arms, initial_priors=priors))
 
     def run(self):
@@ -136,42 +141,43 @@ class Simulation:
         stats['gini_coefficient'] = gini(arm_pull_counts)
         return {k: v for k, v in stats.items() if 'count' not in k}
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run bandit simulations.")
-    parser.add_argument("-n", "--n_agents", type=int, default=90, help="Number of agents")
-    parser.add_argument("-k", "--n_arms", type=int, default=100, help="Number of arms")
-    parser.add_argument("-t", "--n_rounds", type=int, default=100, help="Number of rounds")
-    parser.add_argument("--num_simulations", type=int, default=50, help="Number of simulations to average over")
-    parser.add_argument("--model", type=str, default='gaussian', choices=['gaussian', 'bernoulli'], help="Statistical model for arms and agents")
-    args = parser.parse_args()
-
-    print(f"--- Running {args.model.upper()} Model (Priors Equalized) ---")
-
+def run_experiment(model, args):
+    print(f"\n--- Running {model.upper()} Model (Randomized Monoculture Priors) ---")
     setups = ['monoculture', 'polyculture_fixed', 'polyculture_random']
     results = {setup: defaultdict(float) for setup in setups}
 
     for i in range(args.num_simulations):
         np.random.seed(i)
         random.seed(i)
-        if args.model == 'gaussian':
+        if model == 'gaussian':
             arms = [GaussianArm(np.random.normal(0, 1)) for _ in range(args.n_arms)]
         else:
             arms = [BernoulliArm(np.random.uniform(0, 1)) for _ in range(args.n_arms)]
 
-        # Run simulations for each setup
-        sim_mono = Simulation(args.n_agents, args.n_arms, args.n_rounds, arms, args.model, 'monoculture').run()
-        sim_poly_fixed = Simulation(args.n_agents, args.n_arms, args.n_rounds, arms, args.model, 'polyculture_fixed').run()
-        sim_poly_random = Simulation(args.n_agents, args.n_arms, args.n_rounds, arms, args.model, 'polyculture_random').run()
+        sims = {
+            'monoculture': Simulation(args.n_agents, args.n_arms, args.n_rounds, arms, model, 'monoculture'),
+            'polyculture_fixed': Simulation(args.n_agents, args.n_arms, args.n_rounds, arms, model, 'polyculture_fixed'),
+            'polyculture_random': Simulation(args.n_agents, args.n_arms, args.n_rounds, arms, model, 'polyculture_random')
+        }
 
-        # Aggregate results
-        for key in sim_mono:
-            results['monoculture'][key] += sim_mono[key]
-            results['polyculture_fixed'][key] += sim_poly_fixed[key]
-            results['polyculture_random'][key] += sim_poly_random[key]
+        for setup_name, sim in sims.items():
+            run_results = sim.run()
+            for key, value in run_results.items():
+                results[setup_name][key] += value
 
-    # Print averaged results
     print(f"\n--- Averaged Results over {args.num_simulations} runs ---")
     for setup_name, res in results.items():
         print(f"\n{setup_name.replace('_', ' ').title()}:")
         for key, value in res.items():
             print(f"  {key.replace('_', ' ').title()}: {value / args.num_simulations:.4f}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run bandit simulations.")
+    parser.add_argument("-n", "--n_agents", type=int, default=90, help="Number of agents")
+    parser.add_argument("-k", "--n_arms", type=int, default=100, help="Number of arms")
+    parser.add_argument("-t", "--n_rounds", type=int, default=100, help="Number of rounds")
+    parser.add_argument("--num_simulations", type=int, default=50, help="Number of simulations to average over")
+    args = parser.parse_args()
+
+    run_experiment('gaussian', args)
+    run_experiment('bernoulli', args)
