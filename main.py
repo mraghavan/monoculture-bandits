@@ -1,6 +1,21 @@
 from src.simulation import simulate_single_agent, simulate_independent_agents
+from src.agent import Agent
+from src.bandit import Bandit
 import numpy as np
 import matplotlib.pyplot as plt
+
+def estimate_agent_failure_prob(agent: Agent, bandit: Bandit, num_samples: int = 1000) -> float:
+    """
+    Estimates the failure probability of a single agent by sampling its choices.
+    """
+    if not isinstance(agent, Agent) or not hasattr(agent, 'choose_arm'):
+        raise TypeError("The 'agent' argument must be an instance of Agent with a 'choose_arm' method.")
+
+    failures = 0
+    for _ in range(num_samples):
+        if agent.choose_arm() != bandit.best_arm:
+            failures += 1
+    return failures / num_samples
 
 def main():
     num_trials = 1000
@@ -11,30 +26,35 @@ def main():
     results = {}
 
     for N0 in N0_values:
-        single_agent_outcomes = np.array([simulate_single_agent(num_steps, N0) for _ in range(num_trials)])
+        # Run single-agent simulations
+        single_agent_sims = [simulate_single_agent(num_steps, N0) for _ in range(num_trials)]
+
+        # Estimate failure probability for each trial's final agent state
+        per_trial_p = np.array([estimate_agent_failure_prob(agent, bandit) for bandit, agent in single_agent_sims])
+
+        # Run independent agent simulations
         independent_agents_outcomes = np.array([simulate_independent_agents(num_agents, num_steps, N0) for _ in range(num_trials)])
 
-        p = 1 - np.mean(single_agent_outcomes)
-        z = 1.96  # For 95% confidence interval
-        p_ci = z * np.sqrt(p * (1 - p) / num_trials)
+        # Calculate the statistics
+        p_mean = np.mean(per_trial_p)
+        p_std_err = np.std(per_trial_p) / np.sqrt(num_trials)
+
+        per_trial_p_n = per_trial_p ** num_agents
+        p_n_mean = np.mean(per_trial_p_n)
+        p_n_std_err = np.std(per_trial_p_n) / np.sqrt(num_trials)
 
         results[N0] = {
             'Single Agent': {
-                'failure_rate': p,
-                'std_err': np.std(single_agent_outcomes) / np.sqrt(num_trials),
-                'ci': p_ci
+                'failure_rate': p_mean,
+                'std_err': p_std_err
             },
             'Independent Agents': {
                 'failure_rate': 1 - np.mean(independent_agents_outcomes),
                 'std_err': np.std(independent_agents_outcomes) / np.sqrt(num_trials)
             },
             'Theoretical p^n': {
-                'failure_rate': p**num_agents,
-                'std_err': 0,  # No variance in a theoretical calculation
-                'ci': (
-                    p**num_agents - (p - p_ci)**num_agents,
-                    (p + p_ci)**num_agents - p**num_agents
-                )
+                'failure_rate': p_n_mean,
+                'std_err': p_n_std_err
             }
         }
 
@@ -53,24 +73,12 @@ def main():
     # Iterate over N0_values to plot each as a separate group of bars
     for i, N0 in enumerate(N0_values):
         failure_rates = [results[N0][label]['failure_rate'] for label in labels]
-
-        y_errs = []
-        for label in labels:
-            point_data = results[N0][label]
-            if label == 'Theoretical p^n':
-                # Use the asymmetric confidence interval
-                y_errs.append(point_data['ci'])
-            else:
-                # Use the symmetric standard error
-                y_errs.append((point_data['std_err'], point_data['std_err']))
-
-        # Transpose to get shape (2, N) for matplotlib
-        y_errs_transposed = np.array(y_errs).T
+        std_errs = [results[N0][label]['std_err'] for label in labels]
 
         # The x locations for the groups
         x = np.arange(len(labels)) + i * width
 
-        ax.errorbar(x, failure_rates, yerr=y_errs_transposed, marker='o', linestyle='None', label=f'N0 = {N0}', capsize=5)
+        ax.errorbar(x, failure_rates, yerr=std_errs, marker='o', linestyle='None', label=f'N0 = {N0}', capsize=5)
 
     ax.set_xlabel('Condition')
     ax.set_xticks(np.arange(len(labels)) + width * (len(N0_values) - 1) / 2)

@@ -12,7 +12,7 @@ def simulate_single_agent(num_steps, N0):
         arm = agent.choose_arm()
         reward = bandit.pull(arm)
         agent.update_belief(arm, reward)
-    return agent.choose_arm() == bandit.best_arm
+    return bandit, agent
 
 def simulate_independent_agents(num_agents, num_steps, N0):
     """
