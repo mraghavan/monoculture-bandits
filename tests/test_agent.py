@@ -4,9 +4,14 @@ from src.agent import Agent
 
 class TestAgent(unittest.TestCase):
     def test_agent_initialization(self):
-        agent = Agent(num_arms=2, N0=5)
+        class MockBandit:
+            def pull(self, arm_index):
+                return 1
+
+        agent = Agent(num_arms=2, N0=5, bandit=MockBandit())
         self.assertEqual(agent.num_arms, 2)
-        expected_sum = 2 * 2 + 2 * 5  # (alpha=1, beta=1) for each arm initially, plus N0 samples for each arm
+        # Each arm starts with beliefs (1, 1). N0=5 pulls are all rewarded (1), so we add 5 to alpha for each arm.
+        expected_sum = (1 + 5 + 1) + (1 + 5 + 1)
         self.assertEqual(np.sum(agent.beliefs), expected_sum)
 
     def test_choose_arm(self):

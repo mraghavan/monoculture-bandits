@@ -1,19 +1,18 @@
 import numpy as np
 
 class Agent:
-    def __init__(self, num_arms=2, N0=1):
+    def __init__(self, num_arms=2, N0=1, bandit=None):
         self.num_arms = num_arms
         self.beliefs = np.ones((num_arms, 2))  # Beta distribution parameters (alpha, beta)
         self.N0 = N0
-        self._initialize_prior()
+        if bandit:
+            self._initialize_prior(bandit)
 
-    def _initialize_prior(self):
+    def _initialize_prior(self, bandit):
         for arm in range(self.num_arms):
             for _ in range(self.N0):
-                if np.random.rand() < 0.5:
-                    self.beliefs[arm, 0] += 1
-                else:
-                    self.beliefs[arm, 1] += 1
+                reward = bandit.pull(arm)
+                self.update_belief(arm, reward)
 
     def choose_arm(self):
         expected_rewards = self.beliefs[:, 0] / (self.beliefs[:, 0] + self.beliefs[:, 1])

@@ -1,32 +1,26 @@
-from src.simulation import simulate_single_agent, simulate_independent_agents
+from src.simulation import simulate_monoculture, simulate_polyculture
 import numpy as np
 import matplotlib.pyplot as plt
 
 def main():
     num_trials = 1000
-    num_steps = 1000
     num_agents = 5
     N0_values = [1, 5, 10]
 
     results = {}
 
     for N0 in N0_values:
-        single_agent_outcomes = np.array([simulate_single_agent(num_steps, N0) for _ in range(num_trials)])
-        independent_agents_outcomes = np.array([simulate_independent_agents(num_agents, num_steps, N0) for _ in range(num_trials)])
+        monoculture_outcomes = np.array([simulate_monoculture(num_agents, N0) for _ in range(num_trials)])
+        polyculture_outcomes = np.array([simulate_polyculture(num_agents, N0) for _ in range(num_trials)])
 
-        p = 1 - np.mean(single_agent_outcomes)
         results[N0] = {
-            'Single Agent': {
-                'failure_rate': p,
-                'std_err': np.std(single_agent_outcomes) / np.sqrt(num_trials)
+            'Monoculture': {
+                'failure_rate': 1 - np.mean(monoculture_outcomes),
+                'std_err': np.std(monoculture_outcomes) / np.sqrt(num_trials)
             },
-            'Independent Agents': {
-                'failure_rate': 1 - np.mean(independent_agents_outcomes),
-                'std_err': np.std(independent_agents_outcomes) / np.sqrt(num_trials)
-            },
-            'Theoretical p^n': {
-                'failure_rate': p**num_agents,
-                'std_err': 0  # No variance in a theoretical calculation
+            'Polyculture': {
+                'failure_rate': 1 - np.mean(polyculture_outcomes),
+                'std_err': np.std(polyculture_outcomes) / np.sqrt(num_trials)
             }
         }
 

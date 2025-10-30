@@ -2,48 +2,38 @@ from src.bandit import Bandit
 from src.agent import Agent
 import numpy as np
 
-def simulate_single_agent(num_steps, N0):
+def simulate_monoculture(num_agents, N0):
     """
-    Simulates a single agent interacting with a bandit for a fixed number of steps.
+    Simulates a "monoculture" scenario where each agent observes the choices
+    of all previous agents. This is equivalent to a single agent pulling the
+    arm `num_agents` times.
     """
     bandit = Bandit()
-    agent = Agent(N0=N0)
-    for _ in range(num_steps):
+    agent = Agent(N0=N0, bandit=bandit)
+    for _ in range(num_agents):
         arm = agent.choose_arm()
         reward = bandit.pull(arm)
         agent.update_belief(arm, reward)
     return agent.choose_arm() == bandit.best_arm
 
-def simulate_independent_agents(num_agents, num_steps, N0):
+def simulate_polyculture(num_agents, N0):
     """
-    Simulates multiple agents with independent priors who do not share information.
-    The total number of pulls is `num_steps`, distributed among the agents.
+    Simulates a "polyculture" scenario where each agent acts independently.
+    Success is determined by an "all-seeing" agent that aggregates their
+    final beliefs.
     """
     bandit = Bandit()
-    # Each agent gets its own randomly drawn prior
-    agents = [Agent(N0=N0) for _ in range(num_agents)]
+    agents = [Agent(N0=N0, bandit=bandit) for _ in range(num_agents)]
 
-    for step in range(num_steps):
-        # Cycle through the agents to distribute the arm pulls
-        agent_to_act = agents[step % num_agents]
-        arm = agent_to_act.choose_arm()
+    for agent in agents:
+        arm = agent.choose_arm()
         reward = bandit.pull(arm)
+        agent.update_belief(arm, reward)
 
-        # Only the agent who acted updates its belief
-        agent_to_act.update_belief(arm, reward)
-
-    # Success is determined by an "all-seeing" agent who observes the
-    # entire reward history.
     if num_agents == 0:
         return False
 
-    # We simulate this by creating a new agent and giving it the aggregated
-    # beliefs of all independent agents. The N0 for this agent's prior is
-    # not used since we overwrite the beliefs, but we pass it for consistency.
-    omniscient_agent = Agent(num_arms=len(bandit.p_arms), N0=N0)
-
-    # Each agent's belief is its prior + its observations. Summing them up is
-    # like one agent with a summed prior who saw all observations.
+    omniscient_agent = Agent(num_arms=len(bandit.p_arms))
     aggregated_beliefs = np.sum([agent.beliefs for agent in agents], axis=0)
     omniscient_agent.beliefs = aggregated_beliefs
 
