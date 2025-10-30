@@ -4,14 +4,15 @@ import matplotlib.pyplot as plt
 
 def main():
     num_trials = 1000
+    num_steps = 1000
     num_agents = 5
     N0_values = [1, 5, 10]
 
     results = {}
 
     for N0 in N0_values:
-        monoculture_outcomes = np.array([simulate_monoculture(num_agents, N0) for _ in range(num_trials)])
-        polyculture_outcomes = np.array([simulate_polyculture(num_agents, N0) for _ in range(num_trials)])
+        monoculture_outcomes = np.array([simulate_monoculture(num_steps, N0) for _ in range(num_trials)])
+        polyculture_outcomes = np.array([simulate_polyculture(num_agents, num_steps, N0) for _ in range(num_trials)])
 
         results[N0] = {
             'Monoculture': {
