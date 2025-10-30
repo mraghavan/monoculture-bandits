@@ -8,7 +8,7 @@ def simulate_monoculture(num_steps, N0):
     of all previous agents. This is equivalent to a single agent pulling the
     arm `num_steps` times.
     """
-    bandit = Bandit()
+    bandit = Bandit(p_arms=np.array([0.4, 0.5]))
     agent = Agent(N0=N0, bandit=bandit)
     for _ in range(num_steps):
         arm = agent.choose_arm()
@@ -22,7 +22,7 @@ def simulate_polyculture(num_agents, num_steps, N0):
     Success is determined by an "all-seeing" agent that aggregates their
     final beliefs.
     """
-    bandit = Bandit()
+    bandit = Bandit(p_arms=np.array([0.4, 0.5]))
     agents = [Agent(N0=N0, bandit=bandit) for _ in range(num_agents)]
 
     for step in range(num_steps):

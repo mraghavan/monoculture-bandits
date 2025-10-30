@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 def main():
     num_trials = 1000
     num_steps = 1000
-    num_agents = 5
-    N0_values = [1, 5, 10]
+    num_agents = 2
+    N0_values = [1, 5, 10, 20, 50, 100]
 
     results = {}
 
@@ -30,30 +30,28 @@ def main():
         for condition, values in data.items():
             print(f"  {condition}: Failure Rate = {values['failure_rate']:.4f} +/- {values['std_err']:.4f}")
 
-    # Plotting the results
-    labels = list(results[N0_values[0]].keys())
-    width = 0.2  # the width of the bars
+    # --- New Plotting Logic ---
+
+    # Extract data for plotting
+    monoculture_failure_rates = [results[N0]['Monoculture']['failure_rate'] for N0 in N0_values]
+    monoculture_std_errs = [results[N0]['Monoculture']['std_err'] for N0 in N0_values]
+    polyculture_failure_rates = [results[N0]['Polyculture']['failure_rate'] for N0 in N0_values]
+    polyculture_std_errs = [results[N0]['Polyculture']['std_err'] for N0 in N0_values]
 
     # Create a figure and a set of subplots
     fig, ax = plt.subplots()
 
-    # Iterate over N0_values to plot each as a separate group of bars
-    for i, N0 in enumerate(N0_values):
-        failure_rates = [results[N0][label]['failure_rate'] for label in labels]
-        std_errs = [results[N0][label]['std_err'] for label in labels]
+    # Plot Monoculture results
+    ax.errorbar(N0_values, monoculture_failure_rates, yerr=monoculture_std_errs, marker='o', linestyle='-', label='Monoculture', capsize=5)
 
-        # The x locations for the groups
-        x = np.arange(len(labels)) + i * width
+    # Plot Polyculture results
+    ax.errorbar(N0_values, polyculture_failure_rates, yerr=polyculture_std_errs, marker='o', linestyle='-', label='Polyculture', capsize=5)
 
-        ax.errorbar(x, failure_rates, yerr=std_errs, marker='o', linestyle='None', label=f'N0 = {N0}', capsize=5)
-
-    ax.set_xlabel('Condition')
-    ax.set_xticks(np.arange(len(labels)) + width * (len(N0_values) - 1) / 2)
-    ax.set_xticklabels(labels)
-    plt.ylabel('Failure Rate')
-    plt.title('Failure Rate of Greedy Algorithm in a Bandit Problem')
-    plt.legend()
-    plt.grid(True)
+    ax.set_xlabel('N0 (Initial Samples)')
+    ax.set_ylabel('Failure Rate')
+    ax.set_title('Failure Rate vs. Initial Samples (N0)')
+    ax.legend()
+    ax.grid(True)
     plt.savefig('failure_rates.png')
     plt.show()
 
