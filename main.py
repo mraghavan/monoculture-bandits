@@ -1,4 +1,5 @@
 from src.simulation import simulate_monoculture, simulate_polyculture
+from src.bandit import Bandit
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -12,8 +13,11 @@ def main():
     results = {}
 
     for N0 in tqdm(N0_values, desc="Simulating N0 values"):
-        monoculture_outcomes = np.array([simulate_monoculture(num_steps, N0) for _ in range(num_trials)])
-        polyculture_outcomes = np.array([simulate_polyculture(num_agents, num_steps, N0) for _ in range(num_trials)])
+        # For each N0, create a fixed set of bandits for the trials
+        bandits = [Bandit() for _ in range(num_trials)]
+
+        monoculture_outcomes = np.array([simulate_monoculture(bandits[i], num_steps, N0) for i in range(num_trials)])
+        polyculture_outcomes = np.array([simulate_polyculture(bandits[i], num_agents, num_steps, N0) for i in range(num_trials)])
 
         results[N0] = {
             'Monoculture': {
