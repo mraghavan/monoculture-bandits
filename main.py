@@ -1,6 +1,7 @@
 from src.simulation import simulate_monoculture, simulate_polyculture
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 def main():
     num_trials = 1000
@@ -10,7 +11,7 @@ def main():
 
     results = {}
 
-    for N0 in N0_values:
+    for N0 in tqdm(N0_values, desc="Simulating N0 values"):
         monoculture_outcomes = np.array([simulate_monoculture(num_steps, N0) for _ in range(num_trials)])
         polyculture_outcomes = np.array([simulate_polyculture(num_agents, num_steps, N0) for _ in range(num_trials)])
 

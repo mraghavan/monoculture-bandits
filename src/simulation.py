@@ -37,7 +37,11 @@ def simulate_polyculture(num_agents, num_steps, N0):
 
     omniscient_agent = Agent(num_arms=len(bandit.p_arms))
     aggregated_beliefs = np.sum([agent.beliefs for agent in agents], axis=0)
-    omniscient_agent.beliefs = aggregated_beliefs
+
+    # Correct for the summation of multiple priors. Each agent starts with a
+    # (1, 1) prior, so we subtract (num_agents - 1) from each component.
+    correction = (num_agents - 1) * np.ones((len(bandit.p_arms), 2))
+    omniscient_agent.beliefs = aggregated_beliefs - correction
 
     final_choice = omniscient_agent.choose_arm()
     return final_choice == bandit.best_arm
