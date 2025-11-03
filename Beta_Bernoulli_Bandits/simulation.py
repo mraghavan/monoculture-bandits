@@ -56,7 +56,6 @@ class Simulation:
             initial_beliefs = {}
             for i in range(self.n_arms):
                 alpha, beta_param = 2.0, 2.0
-                # Pool all samples from all agents for this arm
                 all_samples = [sample for agent_samples in self.initial_samples[i] for sample in agent_samples]
                 successes = sum(all_samples)
                 failures = len(all_samples) - successes
@@ -65,7 +64,7 @@ class Simulation:
             for agent in agents:
                 agent.beliefs = initial_beliefs.copy()
 
-        else:  # Polyculture settings
+        else:  # Polyculture and Monoculture_Averaged have distinct priors
             for agent_idx, agent in enumerate(agents):
                 for i in range(self.n_arms):
                     alpha, beta_param = 2.0, 2.0
@@ -82,35 +81,48 @@ class Simulation:
             np.random.shuffle(agent_order)
 
         for t in range(self.n_rounds):
-            if self.setting == 'polyculture-random':
-                np.random.shuffle(agent_order)
-
             pulled_this_round = []
             rewards_this_round = {}
-            available_arms = list(range(self.n_arms))
 
-            for agent_idx in agent_order:
-                agent = self.agents[agent_idx]
+            if self.setting == 'monoculture_averaged':
+                avg_expected_rewards = {}
+                for arm_idx in range(self.n_arms):
+                    total_expected_reward = sum(agent.expected_reward(arm_idx) for agent in self.agents)
+                    avg_expected_rewards[arm_idx] = total_expected_reward / self.n_agents
 
-                best_arm = -1
-                max_expected_reward = -1
+                sorted_arms = sorted(avg_expected_rewards, key=avg_expected_rewards.get, reverse=True)
+                pulled_this_round = sorted_arms[:self.n_agents]
 
-                shuffled_available_arms = np.random.permutation(available_arms)
+                for arm_idx in pulled_this_round:
+                    reward = self.arms[arm_idx].pull()
+                    rewards_this_round[arm_idx] = reward
 
-                for arm_idx in shuffled_available_arms:
-                    expected_reward = agent.expected_reward(arm_idx)
-                    if expected_reward > max_expected_reward:
-                        max_expected_reward = expected_reward
-                        best_arm = arm_idx
+            else: # Logic for all other settings
+                if self.setting == 'polyculture-random':
+                    np.random.shuffle(agent_order)
 
-                if best_arm != -1:
-                    reward = self.arms[best_arm].pull()
-                    pulled_this_round.append(best_arm)
-                    rewards_this_round[best_arm] = reward
-                    available_arms.remove(best_arm)
+                available_arms = list(range(self.n_arms))
+                for agent_idx in agent_order:
+                    agent = self.agents[agent_idx]
+                    best_arm = -1
+                    max_expected_reward = -1
+
+                    shuffled_available_arms = np.random.permutation(available_arms)
+                    for arm_idx in shuffled_available_arms:
+                        expected_reward = agent.expected_reward(arm_idx)
+                        if expected_reward > max_expected_reward:
+                            max_expected_reward = expected_reward
+                            best_arm = arm_idx
+
+                    if best_arm != -1:
+                        reward = self.arms[best_arm].pull()
+                        pulled_this_round.append(best_arm)
+                        rewards_this_round[best_arm] = reward
+                        available_arms.remove(best_arm)
 
             self.pulled_arms_history.append(pulled_this_round)
 
+            # Update beliefs for all agents, regardless of setting
             for agent in self.agents:
                 for arm_idx, reward in rewards_this_round.items():
                     agent.update_belief(arm_idx, reward)

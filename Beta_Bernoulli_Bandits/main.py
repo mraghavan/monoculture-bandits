@@ -8,7 +8,7 @@ def main():
     n_simulations = 50
     n_0 = 5
 
-    settings = ['monoculture', 'monoculture_informed', 'polyculture-fixed', 'polyculture-random']
+    settings = ['monoculture', 'monoculture_informed', 'monoculture_averaged', 'polyculture-fixed', 'polyculture-random']
     total_regrets = {setting: [] for setting in settings}
 
     for i in range(n_simulations):
