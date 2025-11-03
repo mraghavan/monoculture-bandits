@@ -27,13 +27,13 @@ class Agent:
             self.beliefs[arm_index] = (alpha, beta_param + 1)
 
 class Simulation:
-    def __init__(self, n_agents, n_arms, n_rounds, setting, arms, n_0=1):
+    def __init__(self, n_agents, n_arms, n_rounds, setting, arms, initial_samples):
         self.n_agents = n_agents
         self.n_arms = n_arms
         self.n_rounds = n_rounds
         self.setting = setting
-        self.n_0 = n_0
         self.arms = arms
+        self.initial_samples = initial_samples
         self.agents = self._create_agents()
         self.pulled_arms_history = []
 
@@ -44,32 +44,41 @@ class Simulation:
             initial_beliefs = {}
             for i in range(self.n_arms):
                 alpha, beta_param = 2.0, 2.0
-                for _ in range(self.n_0):
-                    reward = self.arms[i].pull()
-                    if reward == 1:
-                        alpha += 1
-                    else:
-                        beta_param += 1
-                initial_beliefs[i] = (alpha, beta_param)
+                samples = self.initial_samples[i][0]
+                successes = sum(samples)
+                failures = len(samples) - successes
+                initial_beliefs[i] = (alpha + successes, beta_param + failures)
 
             for agent in agents:
                 agent.beliefs = initial_beliefs.copy()
-        else:  # Polyculture settings
+
+        elif self.setting == 'monoculture_informed':
+            initial_beliefs = {}
+            for i in range(self.n_arms):
+                alpha, beta_param = 2.0, 2.0
+                # Pool all samples from all agents for this arm
+                all_samples = [sample for agent_samples in self.initial_samples[i] for sample in agent_samples]
+                successes = sum(all_samples)
+                failures = len(all_samples) - successes
+                initial_beliefs[i] = (alpha + successes, beta_param + failures)
+
             for agent in agents:
+                agent.beliefs = initial_beliefs.copy()
+
+        else:  # Polyculture settings
+            for agent_idx, agent in enumerate(agents):
                 for i in range(self.n_arms):
                     alpha, beta_param = 2.0, 2.0
-                    for _ in range(self.n_0):
-                        reward = self.arms[i].pull()
-                        if reward == 1:
-                            alpha += 1
-                        else:
-                            beta_param += 1
-                    agent.beliefs[i] = (alpha, beta_param)
+                    samples = self.initial_samples[i][agent_idx]
+                    successes = sum(samples)
+                    failures = len(samples) - successes
+                    agent.beliefs[i] = (alpha + successes, beta_param + failures)
+
         return agents
 
     def run(self):
         agent_order = list(range(self.n_agents))
-        if self.setting == 'monoculture' or self.setting == 'polyculture-fixed':
+        if self.setting != 'polyculture-random':
             np.random.shuffle(agent_order)
 
         for t in range(self.n_rounds):
@@ -102,20 +111,17 @@ class Simulation:
 
             self.pulled_arms_history.append(pulled_this_round)
 
-            # Update beliefs
             for agent in self.agents:
                 for arm_idx, reward in rewards_this_round.items():
                     agent.update_belief(arm_idx, reward)
 
     def calculate_bayesian_regret(self):
         total_regret = 0
-
         true_rewards = [arm.p for arm in self.arms]
         best_arm_indices = np.argsort(true_rewards)[-self.n_agents:]
         optimal_reward = np.sum([true_rewards[i] for i in best_arm_indices])
 
         for t in range(self.n_rounds):
-
             pulled_rewards = np.sum([true_rewards[i] for i in self.pulled_arms_history[t]])
             total_regret += (optimal_reward - pulled_rewards)
 
