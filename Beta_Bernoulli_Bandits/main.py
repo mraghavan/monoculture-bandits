@@ -6,6 +6,7 @@ def main():
     n_arms = 100
     n_rounds = 100
     n_simulations = 50
+    n_0 = 5
 
     settings = ['monoculture', 'polyculture-fixed', 'polyculture-random']
     total_regrets = {setting: [] for setting in settings}
@@ -17,7 +18,7 @@ def main():
         arms = [Arm() for _ in range(n_arms)]
 
         for setting in settings:
-            sim = Simulation(n_agents, n_arms, n_rounds, setting, arms)
+            sim = Simulation(n_agents, n_arms, n_rounds, setting, arms, n_0=n_0)
             sim.run()
             regret = sim.calculate_bayesian_regret()
             total_regrets[setting].append(regret)
