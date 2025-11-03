@@ -8,7 +8,9 @@ def main():
     n_simulations = 50
     n_0 = 5
 
-    settings = ['monoculture', 'monoculture_informed', 'monoculture_averaged', 'polyculture-fixed', 'polyculture-random']
+    settings = ['monoculture', 'monoculture_informed', 'monoculture_averaged',
+                'monoculture_maxed', 'monoculture_minned', 'polyculture-fixed',
+                'polyculture-random']
     total_regrets = {setting: [] for setting in settings}
 
     for i in range(n_simulations):
@@ -31,7 +33,7 @@ def main():
             total_regrets[setting].append(regret)
 
     print("\n--- Average Bayesian Regret ---")
-    for setting in settings:
+    for setting in sorted(total_regrets.keys()):
         avg_regret = np.mean(total_regrets[setting])
         print(f"{setting}: {avg_regret:.2f}")
 

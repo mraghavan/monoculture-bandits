@@ -64,7 +64,7 @@ class Simulation:
             for agent in agents:
                 agent.beliefs = initial_beliefs.copy()
 
-        else:  # Polyculture and Monoculture_Averaged have distinct priors
+        else:  # Polyculture and other monoculture variants have distinct priors
             for agent_idx, agent in enumerate(agents):
                 for i in range(self.n_arms):
                     alpha, beta_param = 2.0, 2.0
@@ -85,19 +85,33 @@ class Simulation:
             rewards_this_round = {}
 
             if self.setting == 'monoculture_averaged':
-                avg_expected_rewards = {}
+                collective_rewards = {}
                 for arm_idx in range(self.n_arms):
                     total_expected_reward = sum(agent.expected_reward(arm_idx) for agent in self.agents)
-                    avg_expected_rewards[arm_idx] = total_expected_reward / self.n_agents
+                    collective_rewards[arm_idx] = total_expected_reward / self.n_agents
 
-                sorted_arms = sorted(avg_expected_rewards, key=avg_expected_rewards.get, reverse=True)
+                sorted_arms = sorted(collective_rewards, key=collective_rewards.get, reverse=True)
                 pulled_this_round = sorted_arms[:self.n_agents]
 
-                for arm_idx in pulled_this_round:
-                    reward = self.arms[arm_idx].pull()
-                    rewards_this_round[arm_idx] = reward
+            elif self.setting == 'monoculture_maxed':
+                collective_rewards = {}
+                for arm_idx in range(self.n_arms):
+                    max_expected_reward = max(agent.expected_reward(arm_idx) for agent in self.agents)
+                    collective_rewards[arm_idx] = max_expected_reward
 
-            else: # Logic for all other settings
+                sorted_arms = sorted(collective_rewards, key=collective_rewards.get, reverse=True)
+                pulled_this_round = sorted_arms[:self.n_agents]
+
+            elif self.setting == 'monoculture_minned':
+                collective_rewards = {}
+                for arm_idx in range(self.n_arms):
+                    min_expected_reward = min(agent.expected_reward(arm_idx) for agent in self.agents)
+                    collective_rewards[arm_idx] = min_expected_reward
+
+                sorted_arms = sorted(collective_rewards, key=collective_rewards.get, reverse=True)
+                pulled_this_round = sorted_arms[:self.n_agents]
+
+            else: # Logic for monoculture, polyculture-fixed, polyculture-random
                 if self.setting == 'polyculture-random':
                     np.random.shuffle(agent_order)
 
@@ -115,14 +129,17 @@ class Simulation:
                             best_arm = arm_idx
 
                     if best_arm != -1:
-                        reward = self.arms[best_arm].pull()
                         pulled_this_round.append(best_arm)
-                        rewards_this_round[best_arm] = reward
                         available_arms.remove(best_arm)
+
+            # Get rewards for pulled arms
+            for arm_idx in pulled_this_round:
+                reward = self.arms[arm_idx].pull()
+                rewards_this_round[arm_idx] = reward
 
             self.pulled_arms_history.append(pulled_this_round)
 
-            # Update beliefs for all agents, regardless of setting
+            # Update beliefs for all agents
             for agent in self.agents:
                 for arm_idx, reward in rewards_this_round.items():
                     agent.update_belief(arm_idx, reward)
