@@ -35,7 +35,7 @@ class Simulation:
         self.arms = arms
         self.initial_samples = initial_samples
         self.agents = self._create_agents()
-        self.observer = Agent(n_arms) # Impartial Observer
+        self.observer = Agent(n_arms)
         self.pulled_arms_history = []
 
     def _create_agents(self):
@@ -53,19 +53,7 @@ class Simulation:
             for agent in agents:
                 agent.beliefs = initial_beliefs.copy()
 
-        elif self.setting == 'monoculture_informed':
-            initial_beliefs = {}
-            for i in range(self.n_arms):
-                alpha, beta_param = 2.0, 2.0
-                all_samples = [sample for agent_samples in self.initial_samples[i] for sample in agent_samples]
-                successes = sum(all_samples)
-                failures = len(all_samples) - successes
-                initial_beliefs[i] = (alpha + successes, beta_param + failures)
-
-            for agent in agents:
-                agent.beliefs = initial_beliefs.copy()
-
-        else:  # Polyculture and other monoculture variants have distinct priors
+        else:  # Polyculture and Monoculture_Averaged
             for agent_idx, agent in enumerate(agents):
                 for i in range(self.n_arms):
                     alpha, beta_param = 2.0, 2.0
@@ -90,24 +78,6 @@ class Simulation:
                 for arm_idx in range(self.n_arms):
                     total_expected_reward = sum(agent.expected_reward(arm_idx) for agent in self.agents)
                     collective_rewards[arm_idx] = total_expected_reward / self.n_agents
-
-                sorted_arms = sorted(collective_rewards, key=collective_rewards.get, reverse=True)
-                pulled_this_round = sorted_arms[:self.n_agents]
-
-            elif self.setting == 'monoculture_maxed':
-                collective_rewards = {}
-                for arm_idx in range(self.n_arms):
-                    max_expected_reward = max(agent.expected_reward(arm_idx) for agent in self.agents)
-                    collective_rewards[arm_idx] = max_expected_reward
-
-                sorted_arms = sorted(collective_rewards, key=collective_rewards.get, reverse=True)
-                pulled_this_round = sorted_arms[:self.n_agents]
-
-            elif self.setting == 'monoculture_minned':
-                collective_rewards = {}
-                for arm_idx in range(self.n_arms):
-                    min_expected_reward = min(agent.expected_reward(arm_idx) for agent in self.agents)
-                    collective_rewards[arm_idx] = min_expected_reward
 
                 sorted_arms = sorted(collective_rewards, key=collective_rewards.get, reverse=True)
                 pulled_this_round = sorted_arms[:self.n_agents]
@@ -143,7 +113,6 @@ class Simulation:
                 for arm_idx, reward in rewards_this_round.items():
                     agent.update_belief(arm_idx, reward)
 
-            # Update the impartial observer
             for arm_idx, reward in rewards_this_round.items():
                 self.observer.update_belief(arm_idx, reward)
 
