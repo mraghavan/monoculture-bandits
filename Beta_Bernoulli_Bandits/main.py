@@ -13,16 +13,16 @@ def main():
                 'monoculture_maxed', 'monoculture_minned', 'polyculture-fixed',
                 'polyculture-random']
     total_regrets = {setting: [] for setting in settings}
+    total_misclassified = {setting: [] for setting in settings}
 
     completed_simulations = 0
     output_file = "simulation_results.txt"
 
-    # Clear the file at the start
     with open(output_file, 'w') as f:
         pass
 
     for i in range(n_simulations):
-        print(f"Running simulation {i+1}/{n_simulations}...") # This will print to stdout
+        print(f"Running simulation {i+1}/{n_simulations}...")
 
         arms = [Arm() for _ in range(n_arms)]
 
@@ -37,23 +37,25 @@ def main():
             sim = Simulation(n_agents, n_arms, n_rounds, setting, arms, initial_samples)
             sim.run()
             regret = sim.calculate_bayesian_regret()
+            misclassified = sim.calculate_misclassified_arms()
             total_regrets[setting].append(regret)
+            total_misclassified[setting].append(misclassified)
 
         completed_simulations += 1
 
-        # Append results to the file after each run
         with open(output_file, 'a') as f:
             f.write(f"--- Results after {completed_simulations} runs ---\\n")
             for setting in sorted(total_regrets.keys()):
                 avg_regret = np.mean(total_regrets[setting])
-                f.write(f"{setting}: {avg_regret:.2f}\\n")
+                avg_misclassified = np.mean(total_misclassified[setting])
+                f.write(f"{setting}: Regret={avg_regret:.2f}, Misclassified={avg_misclassified:.2f}\\n")
 
-    # Write final results to the file
     with open(output_file, 'a') as f:
-        f.write(f"\\n--- Final Average Bayesian Regret after {completed_simulations} runs ---\\n")
+        f.write(f"\\n--- Final Averages after {completed_simulations} runs ---\\n")
         for setting in sorted(total_regrets.keys()):
             avg_regret = np.mean(total_regrets[setting])
-            f.write(f"{setting}: {avg_regret:.2f}\\n")
+            avg_misclassified = np.mean(total_misclassified[setting])
+            f.write(f"{setting}: Regret={avg_regret:.2f}, Misclassified={avg_misclassified:.2f}\\n")
 
 if __name__ == "__main__":
     main()

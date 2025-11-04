@@ -35,6 +35,7 @@ class Simulation:
         self.arms = arms
         self.initial_samples = initial_samples
         self.agents = self._create_agents()
+        self.observer = Agent(n_arms) # Impartial Observer
         self.pulled_arms_history = []
 
     def _create_agents(self):
@@ -132,17 +133,19 @@ class Simulation:
                         pulled_this_round.append(best_arm)
                         available_arms.remove(best_arm)
 
-            # Get rewards for pulled arms
             for arm_idx in pulled_this_round:
                 reward = self.arms[arm_idx].pull()
                 rewards_this_round[arm_idx] = reward
 
             self.pulled_arms_history.append(pulled_this_round)
 
-            # Update beliefs for all agents
             for agent in self.agents:
                 for arm_idx, reward in rewards_this_round.items():
                     agent.update_belief(arm_idx, reward)
+
+            # Update the impartial observer
+            for arm_idx, reward in rewards_this_round.items():
+                self.observer.update_belief(arm_idx, reward)
 
     def calculate_bayesian_regret(self):
         total_regret = 0
@@ -155,3 +158,14 @@ class Simulation:
             total_regret += (optimal_reward - pulled_rewards)
 
         return total_regret
+
+    def calculate_misclassified_arms(self):
+        true_rewards = [arm.p for arm in self.arms]
+        true_top_arms = set(np.argsort(true_rewards)[-self.n_agents:])
+
+        observer_expected_rewards = [self.observer.expected_reward(i) for i in range(self.n_arms)]
+        observer_top_arms = set(np.argsort(observer_expected_rewards)[-self.n_agents:])
+
+        misclassified_count = len(observer_top_arms.difference(true_top_arms))
+
+        return misclassified_count
