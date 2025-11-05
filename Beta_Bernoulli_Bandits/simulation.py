@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import beta
+import math
 
 class Arm:
     def __init__(self, alpha=2.0, beta_param=2.0):
@@ -37,11 +38,12 @@ class Simulation:
         self.agents = self._create_agents()
         self.observer = Agent(n_arms)
         self.pulled_arms_history = []
+        self.pull_counts = {i: 0 for i in range(n_arms)}
 
     def _create_agents(self):
         agents = [Agent(self.n_arms) for _ in range(self.n_agents)]
 
-        if self.setting == 'monoculture':
+        if self.setting == 'monoculture' or self.setting == 'monoculture_ucb':
             initial_beliefs = {}
             for i in range(self.n_arms):
                 alpha, beta_param = 2.0, 2.0
@@ -82,6 +84,26 @@ class Simulation:
                 sorted_arms = sorted(collective_rewards, key=collective_rewards.get, reverse=True)
                 pulled_this_round = sorted_arms[:self.n_agents]
 
+            elif self.setting == 'monoculture_ucb':
+                ucb_scores = {}
+                monoculture_agent = self.agents[0] # All agents are the same
+
+                unpulled_arms = [i for i, count in self.pull_counts.items() if count == 0]
+
+                if len(unpulled_arms) > 0:
+                    # Prioritize unpulled arms
+                    pulled_this_round = np.random.choice(unpulled_arms, size=min(self.n_agents, len(unpulled_arms)), replace=False).tolist()
+                else:
+                    # If all arms have been pulled, use UCB formula
+                    c = 2
+                    for arm_idx in range(self.n_arms):
+                        expected_reward = monoculture_agent.expected_reward(arm_idx)
+                        exploration_bonus = c / math.sqrt(self.pull_counts[arm_idx])
+                        ucb_scores[arm_idx] = expected_reward + exploration_bonus
+
+                    sorted_arms = sorted(ucb_scores, key=ucb_scores.get, reverse=True)
+                    pulled_this_round = sorted_arms[:self.n_agents]
+
             else: # Logic for monoculture, polyculture-fixed, polyculture-random
                 if self.setting == 'polyculture-random':
                     np.random.shuffle(agent_order)
@@ -106,6 +128,7 @@ class Simulation:
             for arm_idx in pulled_this_round:
                 reward = self.arms[arm_idx].pull()
                 rewards_this_round[arm_idx] = reward
+                self.pull_counts[arm_idx] += 1
 
             self.pulled_arms_history.append(pulled_this_round)
 

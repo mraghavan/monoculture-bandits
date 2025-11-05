@@ -2,7 +2,7 @@ import numpy as np
 from simulation import Arm, Simulation
 
 def run_experiment(n_agents, n_arms, n_rounds, n_simulations, n_0, output_file):
-    settings = ['monoculture', 'monoculture_averaged', 'polyculture-fixed', 'polyculture-random']
+    settings = ['monoculture', 'monoculture_averaged', 'monoculture_ucb', 'polyculture-fixed', 'polyculture-random']
     total_regrets = {setting: [] for setting in settings}
     total_misclassified = {setting: [] for setting in settings}
 
@@ -51,6 +51,9 @@ def main():
                    n_simulations=n_simulations, n_0=n_0, output_file=output_file)
 
     run_experiment(n_agents=50, n_arms=n_arms, n_rounds=n_rounds,
+                   n_simulations=n_simulations, n_0=n_0, output_file=output_file)
+
+    run_experiment(n_agents=90, n_arms=n_arms, n_rounds=n_rounds,
                    n_simulations=n_simulations, n_0=n_0, output_file=output_file)
 
     print("All simulations complete.")
