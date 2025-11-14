@@ -43,9 +43,14 @@ def main():
     # Run the simulation
     simulation_results = run_simulation(simulation_params)
 
+    # Create results directory if it doesn't exist
+    results_dir = 'results'
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+
     # Create a unique filename for the results
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = f"results/simulation_results_{timestamp}.json"
+    filename = os.path.join(results_dir, f"simulation_results_{timestamp}.json")
 
     # Save the results to a JSON file
     with open(filename, 'w') as f:
