@@ -1,12 +1,17 @@
 import unittest
 import numpy as np
 from src.agent import Agent
+from src.bandit import Bandit
 
 class TestAgent(unittest.TestCase):
     def test_agent_initialization(self):
-        agent = Agent(num_arms=2, N0=5)
+        bandit = Bandit(num_arms=2)
+        agent = Agent(num_arms=2, N0=5, bandit=bandit)
         self.assertEqual(agent.num_arms, 2)
-        expected_sum = 2 * 2 + 2 * 5  # (alpha=1, beta=1) for each arm initially, plus N0 samples for each arm
+        # Each arm starts with beliefs (1,1). N0 pulls are added for each arm.
+        # So for each arm, the sum of beliefs will be 1+1+5 = 7.
+        # For 2 arms, the total sum is 2 * 7 = 14.
+        expected_sum = 2 * (1 + 1 + 5)
         self.assertEqual(np.sum(agent.beliefs), expected_sum)
 
     def test_choose_arm(self):

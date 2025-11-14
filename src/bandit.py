@@ -1,11 +1,15 @@
 import numpy as np
 
 class Bandit:
-    def __init__(self, p_arms=None):
+    def __init__(self, p_arms=None, num_arms=2):
         if p_arms is None:
-            p_arms = np.random.rand(2)
-        self.p_arms = p_arms
-        self.best_arm = np.argmax(p_arms)
+            # The arm probabilities are drawn from a Beta(2,2) distribution.
+            # This is a symmetric distribution on [0,1] that is less likely
+            # to generate values very close to 0 or 1 than a uniform
+            # distribution. This makes the learning problem more challenging.
+            p_arms = np.random.beta(2, 2, size=num_arms)
+        self.p_arms = np.array(p_arms)
+        self.best_arm = np.argmax(self.p_arms)
 
     def pull(self, arm_index):
         if np.random.rand() < self.p_arms[arm_index]:
