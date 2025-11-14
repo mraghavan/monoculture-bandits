@@ -17,9 +17,11 @@ def run_and_save_experiment(params):
 
     # Run the appropriate simulation
     if condition == 'monoculture':
-        outcomes = [simulate_monoculture(num_steps, N0, num_arms) for _ in tqdm(range(num_trials), desc=f"Monoculture N0={N0}")]
+        desc = f"Monoculture N0={N0}, steps={num_steps}"
+        outcomes = [simulate_monoculture(num_steps, N0, num_arms) for _ in tqdm(range(num_trials), desc=desc)]
     elif condition == 'polyculture':
-        outcomes = [simulate_polyculture(num_agents, num_steps, N0, num_arms) for _ in tqdm(range(num_trials), desc=f"Polyculture k={num_agents} N0={N0}")]
+        desc = f"Polyculture k={num_agents} N0={N0}, steps={num_steps}"
+        outcomes = [simulate_polyculture(num_agents, num_steps, N0, num_arms) for _ in tqdm(range(num_trials), desc=desc)]
     else:
         raise ValueError(f"Unknown condition: {condition}")
 
@@ -60,29 +62,32 @@ def main():
     """
     base_params = {
         'num_trials': 10,  # Reduced for quick testing
-        'num_steps': 1000,
         'num_arms': 4,
     }
     N0_values = [1, 5, 10]
+    num_steps_values = [1000, 2000]
 
-    for N0 in N0_values:
-        # Monoculture simulation
-        mono_params = base_params.copy()
-        mono_params.update({
-            'N0': N0,
-            'condition': 'monoculture',
-        })
-        run_and_save_experiment(mono_params)
-
-        # Polyculture simulations
-        for k in range(2, base_params['num_arms'] + 1):
-            poly_params = base_params.copy()
-            poly_params.update({
+    for num_steps in num_steps_values:
+        for N0 in N0_values:
+            # Monoculture simulation
+            mono_params = base_params.copy()
+            mono_params.update({
                 'N0': N0,
-                'condition': 'polyculture',
-                'num_agents': k
+                'num_steps': num_steps,
+                'condition': 'monoculture',
             })
-            run_and_save_experiment(poly_params)
+            run_and_save_experiment(mono_params)
+
+            # Polyculture simulations
+            for k in range(2, base_params['num_arms'] + 1):
+                poly_params = base_params.copy()
+                poly_params.update({
+                    'N0': N0,
+                    'num_steps': num_steps,
+                    'condition': 'polyculture',
+                    'num_agents': k
+                })
+                run_and_save_experiment(poly_params)
 
     print("All simulations complete.")
 
