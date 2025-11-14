@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 def main():
-    num_trials = 1000
+    num_trials = 10000
     num_steps = 1000
-    num_agents = 2
-    N0_values = [1, 5, 10, 20, 50, 100]
+    num_agents = 3
+    N0_values = [1, 5, 10, 20, 40, 60, 80, 100]
 
     results = {}
 
@@ -50,14 +50,14 @@ def main():
     ax.errorbar(N0_values, monoculture_failure_rates, yerr=monoculture_std_errs, marker='o', linestyle='-', label='Monoculture', capsize=5)
 
     # Plot Polyculture results
-    ax.errorbar(N0_values, polyculture_failure_rates, yerr=polyculture_std_errs, marker='o', linestyle='-', label='Polyculture', capsize=5)
+    ax.errorbar(N0_values, polyculture_failure_rates, yerr=polyculture_std_errs, marker='o', linestyle='-', label=rf'Polyculture ($k={num_agents}$)', capsize=5)
 
-    ax.set_xlabel('N0 (Initial Samples)')
+    ax.set_xlabel('$N_0$ (Initial Samples)')
     ax.set_ylabel('Failure Rate')
-    ax.set_title('Failure Rate vs. Initial Samples (N0)')
+    ax.set_title(f'$T = {num_steps}$')
     ax.legend()
     ax.grid(True)
-    plt.savefig('failure_rates.png')
+    plt.savefig(f'failure_rates_T={num_steps}.png', dpi=600)
     plt.show()
 
 if __name__ == "__main__":
