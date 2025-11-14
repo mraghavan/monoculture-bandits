@@ -4,9 +4,9 @@ import os
 from src.simulation import simulate_monoculture, simulate_polyculture
 from tqdm import tqdm
 
-def run_and_save_experiment(params):
+def run_experiment(params):
     """
-    Runs a single simulation experiment and saves the results to a JSON file.
+    Runs a single simulation experiment and returns the results.
     """
     num_trials = params['num_trials']
     num_steps = params['num_steps']
@@ -29,32 +29,13 @@ def run_and_save_experiment(params):
     failure_rate = 1 - np.mean(outcomes)
     std_err = np.std(outcomes) / np.sqrt(num_trials)
 
-    result_data = {
+    return {
         'params': params,
         'results': {
             'failure_rate': failure_rate,
             'std_err': std_err
         }
     }
-
-    # Ensure the results directory exists
-    results_dir = 'results'
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
-
-    # Create a descriptive filename
-    if condition == 'monoculture':
-        filename = f"N0_{N0}_arms_{num_arms}_steps_{num_steps}_mono.json"
-    else:
-        filename = f"N0_{N0}_arms_{num_arms}_steps_{num_steps}_poly_{num_agents}.json"
-
-    filepath = os.path.join(results_dir, filename)
-
-    # Save the results
-    with open(filepath, 'w') as f:
-        json.dump(result_data, f, indent=4)
-
-    print(f"Saved results to {filepath}")
 
 def main():
     """
@@ -68,6 +49,7 @@ def main():
     num_steps_values = [1000, 2000]
 
     for num_steps in num_steps_values:
+        results_list = []
         for N0 in N0_values:
             # Monoculture simulation
             mono_params = base_params.copy()
@@ -76,7 +58,7 @@ def main():
                 'num_steps': num_steps,
                 'condition': 'monoculture',
             })
-            run_and_save_experiment(mono_params)
+            results_list.append(run_experiment(mono_params))
 
             # Polyculture simulations
             for k in range(2, base_params['num_arms'] + 1):
@@ -87,7 +69,20 @@ def main():
                     'condition': 'polyculture',
                     'num_agents': k
                 })
-                run_and_save_experiment(poly_params)
+                results_list.append(run_experiment(poly_params))
+
+        # Save all results for this num_steps value to a single file
+        results_dir = 'results'
+        if not os.path.exists(results_dir):
+            os.makedirs(results_dir)
+
+        filename = f"arms_{base_params['num_arms']}_steps_{num_steps}.json"
+        filepath = os.path.join(results_dir, filename)
+
+        with open(filepath, 'w') as f:
+            json.dump(results_list, f, indent=4)
+
+        print(f"Saved results for num_steps={num_steps} to {filepath}")
 
     print("All simulations complete.")
 
