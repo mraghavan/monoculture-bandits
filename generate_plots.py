@@ -15,8 +15,21 @@ def load_and_group_results(results_dir):
         if filename.endswith('.json'):
             filepath = os.path.join(results_dir, filename)
             with open(filepath, 'r') as f:
-                data = json.load(f)
+                try:
+                    data = json.load(f)
+                except json.JSONDecodeError:
+                    print(f"Warning: Could not decode JSON from {filename}. Skipping.")
+                    continue
+
+                if 'params' not in data:
+                    print(f"Warning: Missing 'params' key in {filename}. Skipping.")
+                    continue
+
                 params = data['params']
+                if 'num_arms' not in params or 'num_steps' not in params:
+                    print(f"Warning: Missing 'num_arms' or 'num_steps' in params for {filename}. Skipping.")
+                    continue
+
                 key = (params['num_arms'], params['num_steps'])
                 grouped_results[key].append(data)
     return grouped_results
