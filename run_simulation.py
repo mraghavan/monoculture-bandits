@@ -3,29 +3,39 @@ import numpy as np
 import os
 from src.simulation import simulate_monoculture, simulate_polyculture
 from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+
+# Wrapper functions for parallel execution. They must be at the top level.
+def run_mono_trial(num_steps, N0, num_arms, _):
+    return simulate_monoculture(num_steps, N0, num_arms)
+
+def run_poly_trial(num_agents, num_steps, N0, num_arms, _):
+    return simulate_polyculture(num_agents, num_steps, N0, num_arms)
 
 def run_experiment(params):
     """
-    Runs a single simulation experiment and returns the results.
+    Runs a single simulation experiment in parallel and returns the results.
     """
     num_trials = params['num_trials']
     num_steps = params['num_steps']
     num_arms = params['num_arms']
     N0 = params['N0']
     condition = params['condition']
-    num_agents = params.get('num_agents', 1)  # Default to 1 for monoculture
+    num_agents = params.get('num_agents', 1)
 
-    # Run the appropriate simulation
     if condition == 'monoculture':
         desc = f"Monoculture N0={N0}, steps={num_steps}"
-        outcomes = [simulate_monoculture(num_steps, N0, num_arms) for _ in tqdm(range(num_trials), desc=desc)]
+        target_func = partial(run_mono_trial, num_steps, N0, num_arms)
     elif condition == 'polyculture':
         desc = f"Polyculture k={num_agents} N0={N0}, steps={num_steps}"
-        outcomes = [simulate_polyculture(num_agents, num_steps, N0, num_arms) for _ in tqdm(range(num_trials), desc=desc)]
+        target_func = partial(run_poly_trial, num_agents, num_steps, N0, num_arms)
     else:
         raise ValueError(f"Unknown condition: {condition}")
 
-    # Calculate results
+    with ProcessPoolExecutor() as executor:
+        outcomes = list(tqdm(executor.map(target_func, range(num_trials)), total=num_trials, desc=desc))
+
     failure_rate = 1 - np.mean(outcomes)
     std_err = np.std(outcomes) / np.sqrt(num_trials)
 
@@ -42,7 +52,7 @@ def main():
     Defines and runs a suite of simulation experiments.
     """
     base_params = {
-        'num_trials': 10,  # Reduced for quick testing
+        'num_trials': 100,  # Increased trials to see performance gain
         'num_arms': 4,
     }
     N0_values = [1, 5, 10]
@@ -51,7 +61,6 @@ def main():
     for num_steps in num_steps_values:
         results_list = []
         for N0 in N0_values:
-            # Monoculture simulation
             mono_params = base_params.copy()
             mono_params.update({
                 'N0': N0,
@@ -60,7 +69,6 @@ def main():
             })
             results_list.append(run_experiment(mono_params))
 
-            # Polyculture simulations
             for k in range(2, base_params['num_arms'] + 1):
                 poly_params = base_params.copy()
                 poly_params.update({
@@ -71,7 +79,6 @@ def main():
                 })
                 results_list.append(run_experiment(poly_params))
 
-        # Save all results for this num_steps value to a single file
         results_dir = 'results'
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
