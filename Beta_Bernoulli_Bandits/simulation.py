@@ -94,8 +94,8 @@ class Simulation:
                     # Prioritize unpulled arms
                     pulled_this_round = np.random.choice(unpulled_arms, size=min(self.n_agents, len(unpulled_arms)), replace=False).tolist()
                 else:
-                    # If all arms have been pulled, use UCB formula
-                    c = 1
+                    # If all arms have been pulled, use UCB formula with annealing c
+                    c = 1 / math.log(t + 2)
                     for arm_idx in range(self.n_arms):
                         expected_reward = monoculture_agent.expected_reward(arm_idx)
                         exploration_bonus = c / math.sqrt(self.pull_counts[arm_idx])
