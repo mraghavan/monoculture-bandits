@@ -1,5 +1,5 @@
 import unittest
-from hiring_crowd_wisdom import deferred_acceptance
+from hiring_crowd_wisdom import deferred_acceptance_firm_proposing
 
 class TestDeferredAcceptance(unittest.TestCase):
 
@@ -26,19 +26,17 @@ class TestDeferredAcceptance(unittest.TestCase):
             1: 1
         }
 
-        # Expected matching: F0 gets C0, F1 gets C1. C2 is unmatched.
-        # This is stable because:
-        # - F0 is matched with its top choice C0.
-        # - F1 is matched with its top choice C1.
-        # - C0 and C1 are matched with their top choices.
-        # - C2 would prefer F0, but F0 prefers its current match C0 over C2.
-        # - C2 would prefer F1, but F1 prefers its current match C1 over C2.
+        # Expected matching with firm-proposing DA:
+        # F0 proposes to C0. C0 accepts (tentative).
+        # F1 proposes to C1. C1 accepts (tentative).
+        # Both firms are matched with their first choice, so the result is stable.
+        # F0 gets C0, F1 gets C1.
         expected_matches = {
             0: [0],
             1: [1]
         }
 
-        result = deferred_acceptance(firm_prefs, candidate_prefs, firm_capacities)
+        result = deferred_acceptance_firm_proposing(firm_prefs, candidate_prefs, firm_capacities)
 
         # The algorithm may return lists in different orders, so we sort them.
         sorted_result = {k: sorted(v) for k, v in result.items()}
@@ -68,13 +66,13 @@ class TestDeferredAcceptance(unittest.TestCase):
             1: 2
         }
 
-        # Expected result: C0, C1 go to F0. C2, C3 go to F1.
+        # Expected result: F0 proposes to C0, C1. They both accept. F1 proposes to C3, C2. They both accept.
         expected_matches = {
             0: [0, 1],
             1: [2, 3]
         }
 
-        result = deferred_acceptance(firm_prefs, candidate_prefs, firm_capacities)
+        result = deferred_acceptance_firm_proposing(firm_prefs, candidate_prefs, firm_capacities)
         sorted_result = {k: sorted(v) for k, v in result.items()}
         sorted_expected = {k: sorted(v) for k, v in expected_matches.items()}
         self.assertEqual(sorted_result, sorted_expected)

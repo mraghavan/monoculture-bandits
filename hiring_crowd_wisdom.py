@@ -1,64 +1,68 @@
 import numpy as np
 
-def deferred_acceptance(firm_prefs, candidate_prefs, firm_capacities):
+def deferred_acceptance_firm_proposing(firm_prefs, candidate_prefs, firm_capacities):
     """
     Implements the Gale-Shapley deferred acceptance algorithm.
-    This version is candidate-proposing.
+    This version is firm-proposing.
     """
-    num_firms = len(firm_prefs)
-    num_candidates = len(candidate_prefs)
+    # Track which candidate each firm should propose to next
+    firm_next_proposal = {f: 0 for f in firm_prefs.keys()}
 
-    # Invert firm_prefs for quick lookup: firm_pref_rank[firm_id][candidate_id] = rank
-    firm_pref_rank = {f: {c: i for i, c in enumerate(prefs)} for f, prefs in firm_prefs.items()}
+    # Final matches for firms
+    firm_matches = {f: [] for f in firm_prefs.keys()}
 
-    # Track which firm each candidate should propose to next
-    candidate_next_proposal = {c: 0 for c in range(num_candidates)}
+    # Tentative matches for candidates (candidate_id -> firm_id)
+    candidate_matches = {}
 
-    # List of free candidates, initially all candidates
-    free_candidates = list(range(num_candidates))
+    # Invert candidate_prefs for quick lookup of ranks
+    candidate_pref_rank = {c: {f: i for i, f in enumerate(prefs)} for c, prefs in candidate_prefs.items()}
 
-    # Matches: firm_id -> list of candidate_ids
-    matches = {f: [] for f in range(num_firms)}
+    # Initially, all firms have open slots and are "free" to make proposals
+    free_firms = list(firm_prefs.keys())
 
-    while free_candidates:
-        candidate_id = free_candidates.pop(0)
+    while free_firms:
+        firm_id = free_firms.pop(0)
 
-        # If candidate has proposed to all firms on their list, they remain unmatched
-        if candidate_next_proposal[candidate_id] >= len(candidate_prefs[candidate_id]):
-            continue
+        # Get the list of candidates this firm can still propose to
+        proposals_to_make = firm_prefs[firm_id]
+        proposal_index = firm_next_proposal[firm_id]
 
-        firm_id = candidate_prefs[candidate_id][candidate_next_proposal[candidate_id]]
-        candidate_next_proposal[candidate_id] += 1
+        if proposal_index < len(proposals_to_make):
+            candidate_id = proposals_to_make[proposal_index]
+            firm_next_proposal[firm_id] += 1
 
-        # If firm has an open slot
-        if len(matches[firm_id]) < firm_capacities[firm_id]:
-            matches[firm_id].append(candidate_id)
-        else:
-            # Firm is full, check if this candidate is preferred
-            # Find the worst candidate currently matched to the firm
-            current_matched_candidates = matches[firm_id]
-            # Higher rank number is worse
-            worst_candidate_rank = -1
-            worst_candidate_id = -1
-            for c in current_matched_candidates:
-                rank = firm_pref_rank[firm_id].get(c, float('inf'))
-                if rank > worst_candidate_rank:
-                    worst_candidate_rank = rank
-                    worst_candidate_id = c
+            current_match = candidate_matches.get(candidate_id)
 
-            # If the new candidate is better than the worst one
-            new_candidate_rank = firm_pref_rank[firm_id].get(candidate_id, float('inf'))
-            if new_candidate_rank < worst_candidate_rank:
-                # Bump the worst candidate
-                matches[firm_id].remove(worst_candidate_id)
-                free_candidates.append(worst_candidate_id)
-                # Accept the new candidate
-                matches[firm_id].append(candidate_id)
+            if current_match is None:
+                # Candidate is free and accepts the proposal
+                candidate_matches[candidate_id] = firm_id
+                firm_matches[firm_id].append(candidate_id)
+                # If the firm is not full, it needs to propose again
+                if len(firm_matches[firm_id]) < firm_capacities[firm_id]:
+                    free_firms.append(firm_id)
             else:
-                # Candidate is rejected, remains free
-                free_candidates.append(candidate_id)
+                # Candidate is already matched, check preferences
+                current_firm_rank = candidate_pref_rank[candidate_id].get(current_match, float('inf'))
+                new_firm_rank = candidate_pref_rank[candidate_id].get(firm_id, float('inf'))
 
-    return matches
+                if new_firm_rank < current_firm_rank:
+                    # Candidate prefers the new firm
+                    # The old firm is now rejected and has a free slot
+                    firm_matches[current_match].remove(candidate_id)
+                    free_firms.append(current_match)
+
+                    # Candidate's new match is this firm
+                    candidate_matches[candidate_id] = firm_id
+                    firm_matches[firm_id].append(candidate_id)
+
+                    # If the new firm is not full, it must continue proposing
+                    if len(firm_matches[firm_id]) < firm_capacities[firm_id]:
+                        free_firms.append(firm_id)
+                else:
+                    # Candidate rejects the new proposal, firm must propose to next
+                    free_firms.append(firm_id)
+
+    return firm_matches
 
 def run_simulation(n_firms, k_candidates, num_runs):
     """
@@ -82,7 +86,7 @@ def run_simulation(n_firms, k_candidates, num_runs):
         polyculture_estimated_values = candidate_true_values + polyculture_noises
         polyculture_firm_prefs = {i: np.argsort(-polyculture_estimated_values[i]).tolist() for i in range(n_firms)}
 
-        polyculture_matches = deferred_acceptance(polyculture_firm_prefs, candidate_prefs, firm_capacities)
+        polyculture_matches = deferred_acceptance_firm_proposing(polyculture_firm_prefs, candidate_prefs, firm_capacities)
 
         matched_candidates_poly = [candidate for firm_matches in polyculture_matches.values() for candidate in firm_matches]
         if matched_candidates_poly:
@@ -96,7 +100,7 @@ def run_simulation(n_firms, k_candidates, num_runs):
         mono_pref_list = np.argsort(-monoculture_estimated_values).tolist()
         monoculture_firm_prefs = {i: mono_pref_list for i in range(n_firms)}
 
-        monoculture_matches = deferred_acceptance(monoculture_firm_prefs, candidate_prefs, firm_capacities)
+        monoculture_matches = deferred_acceptance_firm_proposing(monoculture_firm_prefs, candidate_prefs, firm_capacities)
 
         matched_candidates_mono = [candidate for firm_matches in monoculture_matches.values() for candidate in firm_matches]
         if matched_candidates_mono:
@@ -110,7 +114,7 @@ def run_simulation(n_firms, k_candidates, num_runs):
         ensem_pref_list = np.argsort(-ensembled_estimated_values).tolist()
         monoculture_ensembled_firm_prefs = {i: ensem_pref_list for i in range(n_firms)}
 
-        monoculture_ensembled_matches = deferred_acceptance(monoculture_ensembled_firm_prefs, candidate_prefs, firm_capacities)
+        monoculture_ensembled_matches = deferred_acceptance_firm_proposing(monoculture_ensembled_firm_prefs, candidate_prefs, firm_capacities)
 
         matched_candidates_ensem = [candidate for firm_matches in monoculture_ensembled_matches.values() for candidate in firm_matches]
         if matched_candidates_ensem:
