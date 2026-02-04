@@ -71,7 +71,7 @@ if __name__ == "__main__":
     start_time = time.time()
     for n in ns:
         perf_poly, perf_mono, perf_ensemble = run_simulation_set(n, num_runs)
-        print(f"{n:<5} | {perf_poly:<15.6f} | {perf_mono:<15.6f} | {perf_ensemble:<15.6f}")
+        print(f"{n:<5} | {perf_poly:<15.4f} | {perf_mono:<15.4f} | {perf_ensemble:<15.4f}")
 
     end_time = time.time()
     # print(f"\nTotal time: {end_time - start_time:.2f} seconds")
