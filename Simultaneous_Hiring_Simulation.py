@@ -93,7 +93,7 @@ def main():
     k_candidates = 1000
     capacity = 10
     num_runs = 1000
-    firm_counts = [10, 25, 50, 75, 90]
+    firm_counts = [10, 30, 50, 70, 90]
 
     print(f"Starting simulation with k={k_candidates} candidates, {num_runs} runs per n_firms.")
     print(f"Performance metric: fraction of available value captured, higher is better")
