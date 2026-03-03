@@ -67,7 +67,7 @@ def run_simulation_set(n, num_runs=1000):
     return mean_results
 
 if __name__ == "__main__":
-    ns = [100, 250, 500, 750, 900]
+    ns = [100, 300, 500, 700, 900]
     num_runs = 1000
 
     print(f"Performance metric: fraction of available value captured, higher is better")
