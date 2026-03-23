@@ -7,6 +7,17 @@ def generate_plots():
     """
     Generates plots from the aggregated simulation results.
     """
+    # Set larger font sizes for all plot elements
+    plt.rcParams.update({
+        'font.size': 14,
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'xtick.labelsize': 14,
+        'ytick.labelsize': 14,
+        'legend.fontsize': 14,
+        'figure.titlesize': 20
+    })
+    
     results_dir = 'results'
     plots_dir = 'plots'
 
@@ -38,35 +49,68 @@ def generate_plots():
             # Plotting
             fig, ax = plt.subplots(figsize=(12, 8))
 
-            # Get unique conditions (monoculture, polyculture)
-            conditions = df['params.condition'].unique()
+            plot_series = []
 
-            for condition in sorted(conditions):
-                if condition == 'polyculture':
-                    # Group polyculture results by number of agents
-                    poly_groups = df[df['params.condition'] == 'polyculture'].groupby('params.num_agents')
-                    for num_agents, group in poly_groups:
-                        group = group.sort_values('params.N0')
-                        N0_values = group['params.N0']
-                        failure_rates = group['results.failure_rate']
-                        std_errs = group['results.std_err']
-                        ax.errorbar(N0_values, failure_rates, yerr=std_errs, marker='o', linestyle='-', label=f'polyculture (k={num_agents})', capsize=5)
-                else:
-                    # Plot monoculture results
-                    mono_group = df[df['params.condition'] == 'monoculture'].sort_values('params.N0')
-                    N0_values = mono_group['params.N0']
-                    failure_rates = mono_group['results.failure_rate']
-                    std_errs = mono_group['results.std_err']
-                    ax.errorbar(N0_values, failure_rates, yerr=std_errs, marker='o', linestyle='-', label='monoculture', capsize=5)
+            mono_group = df[df['params.condition'] == 'monoculture'].sort_values('params.N0')
+            if not mono_group.empty:
+                plot_series.append(('monoculture', mono_group))
 
-            ax.set_xlabel('N0 (Initial Samples per Arm)')
-            ax.set_ylabel('Failure Rate')
-            ax.set_title(f'Failure Rate vs. N0 (arms={num_arms}, steps={num_steps})')
-            ax.legend()
+            poly_groups = df[df['params.condition'] == 'polyculture'].groupby('params.num_agents')
+            for num_agents, group in sorted(poly_groups, key=lambda item: int(item[0])):
+                plot_series.append((f'polyculture ($m={int(num_agents)}$)', group.sort_values('params.N0')))
+
+            line_styles_markers = [
+                ('-', 'o'),
+                ('--', 's'),
+                ('-.', '^'),
+                ((0, (4, 1.5, 1, 1.5)), 'D'),
+                ((0, (5, 2)), 'v'),
+                ((0, (3, 1, 1, 1)), 'P'),
+            ]
+            cmap = plt.get_cmap('cubehelix')
+            num_series = len(plot_series)
+            if num_series == 1:
+                series_colors = [cmap(0.45)]
+            else:
+                min_color = 0.15
+                max_color = 0.75
+                series_colors = [
+                    cmap(min_color + (max_color - min_color) * index / (num_series - 1))
+                    for index in range(num_series)
+                ]
+
+            for index, (label, group) in enumerate(plot_series):
+                linestyle, marker = line_styles_markers[index % len(line_styles_markers)]
+                color = series_colors[index]
+                N0_values = group['params.N0']
+                failure_rates = group['results.failure_rate']
+                std_errs = group['results.std_err']
+                ax.errorbar(
+                    N0_values,
+                    failure_rates,
+                    yerr=std_errs,
+                    marker=marker,
+                    linestyle=linestyle,
+                    label=label,
+                    color=color,
+                    ecolor=color,
+                    markerfacecolor=color,
+                    markeredgecolor='black',
+                    markeredgewidth=1.6,
+                    markersize=7,
+                    linewidth=2.3,
+                    capsize=5,
+                )
+
+            ax.set_xlabel('$N_0$', fontsize=16)
+            ax.set_ylabel('Failure Rate', fontsize=16)
+            ax.set_title(f'Monoculture vs. polyculture failure', fontsize=18)
+            ax.legend(fontsize=14)
+            ax.tick_params(labelsize=14)
             ax.grid(True)
 
             plot_filename = os.path.splitext(filename)[0] + '.png'
-            plt.savefig(os.path.join(plots_dir, plot_filename))
+            plt.savefig(os.path.join(plots_dir, plot_filename), dpi=600)
             plt.close(fig)
             print(f"Generated plot: {plot_filename}")
 

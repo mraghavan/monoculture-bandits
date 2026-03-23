@@ -6,6 +6,11 @@ from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
+# Prior distribution parameters for bandit arm probabilities
+# Arm probabilities are drawn from Beta(alpha, beta)
+BANDIT_PRIOR_ALPHA = 2
+BANDIT_PRIOR_BETA = 2
+
 # Wrapper functions for parallel execution. They must be at the top level.
 def run_mono_trial(num_steps, N0, num_arms, _):
     return simulate_monoculture(num_steps, N0, num_arms)
@@ -52,11 +57,13 @@ def main():
     Defines and runs a suite of simulation experiments.
     """
     base_params = {
-        'num_trials': 100,  # Increased trials to see performance gain
+        'num_trials': 10000,  # Increased trials to see performance gain
         'num_arms': 4,
+        'bandit_prior_alpha': BANDIT_PRIOR_ALPHA,  # Beta distribution alpha for generating arm probabilities
+        'bandit_prior_beta': BANDIT_PRIOR_BETA,   # Beta distribution beta for generating arm probabilities
     }
-    N0_values = [1, 5, 10]
-    num_steps_values = [1000, 2000]
+    N0_values = [1, 3, 5, 8, 10, 15, 20, 25, 35, 50, 75, 100]
+    num_steps_values = [100, 1000]
 
     for num_steps in num_steps_values:
         results_list = []
