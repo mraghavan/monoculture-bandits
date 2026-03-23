@@ -1,39 +1,55 @@
 # monoculture-bandits
 
-This project simulates a 2-armed Bayesian bandit problem to analyze the failure rate of a greedy (myopic) agent. The simulation compares the failure rate between two conditions: a single agent and multiple agents who learn independently.
+Simulations comparing monoculture vs. polyculture strategies across several settings.
 
-## Setup and Usage
+## Setup
 
-### Using `uv`
-
-1.  **Install `uv`:**
+1. **Install `uv`:**
     ```bash
     pip install uv
     ```
 
-2.  **Create a virtual environment:**
+2. **Create a virtual environment and install dependencies:**
     ```bash
     uv venv
-    ```
-
-3.  **Activate the virtual environment:**
-    ```bash
-    source .venv/bin/activate
-    ```
-
-4.  **Install dependencies:**
-    ```bash
     uv pip install -r requirements.txt
     ```
 
-5.  **Run the simulation:**
-    ```bash
-    python main.py
-    ```
+## Simulations
 
-    This will run the simulations and generate a plot of the failure rates named `failure_rates.png`.
+### Failure Rates (`simulations/failure_rates/`)
 
-6.  **Run tests:**
-    ```bash
-    python -m unittest discover tests
-    ```
+Bayesian bandit simulation comparing failure rates of monoculture vs. polyculture agents across varying initial sample sizes.
+
+```bash
+cd simulations/failure_rates
+uv run python run.py    # runs simulation, saves results to results/
+uv run python plot.py   # generates plots to plots/
+```
+
+### Hiring Bandit (`simulations/hiring_bandit/`)
+
+Bandit simulation in a hiring context. Compares monoculture, poly_fixed, poly_random, and ensemble conditions on regret and misclassified arms.
+
+```bash
+cd simulations/hiring_bandit
+uv run python run.py
+```
+
+### Sequential Hiring (`simulations/sequential_hiring/`)
+
+Sequential hiring simulation where agents pick candidates one at a time. Reports fraction of available value captured for polyculture, monoculture, and ensemble.
+
+```bash
+cd simulations/sequential_hiring
+uv run python run.py
+```
+
+### Simultaneous Hiring (`simulations/simultaneous_hiring/`)
+
+Hiring simulation using deferred acceptance matching. Reports fraction of available value captured for polyculture, monoculture, and ensemble.
+
+```bash
+cd simulations/simultaneous_hiring
+uv run python run.py
+```
