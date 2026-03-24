@@ -207,7 +207,7 @@ def generate_plots(n_values, results, plots_dir='plots'):
                     color=color, markerfacecolor=color, markeredgecolor='black',
                     markeredgewidth=1.6, markersize=7, linewidth=2.3)
 
-        ax.set_xlabel('$n$ (number of agents)')
+        ax.set_xlabel('$n$ (number of firms)')
         ax.set_ylabel(ylabel)
         ax.set_title(title)
         ax.legend()

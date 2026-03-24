@@ -123,7 +123,7 @@ def generate_line_plot(firm_counts, all_results, plots_dir='plots'):
                 markeredgewidth=1.6, markersize=7, linewidth=2.3)
 
     ax.set_xlabel('$n$ (number of firms)')
-    ax.set_ylabel('Fraction of available value captured')
+    ax.set_ylabel('Normalized Performance')
     ax.set_title('Simultaneous hiring: monoculture vs. polyculture vs. ensemble')
     ax.set_ylim(0.93, 1.01)
     ax.legend()
