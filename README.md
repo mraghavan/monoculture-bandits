@@ -29,7 +29,7 @@ uv run python plot.py   # generates plots to plots/
 
 ### Hiring Bandit (`simulations/hiring_bandit/`)
 
-Bandit simulation in a hiring context. Compares monoculture, poly_fixed, poly_random, and ensemble conditions on regret and misclassified arms.
+Bandit simulation in a hiring context. Compares monoculture, poly_fixed, poly_random, and ensemble conditions on regret and misclassified arms. Generates plots to `plots/`.
 
 ```bash
 cd simulations/hiring_bandit
@@ -38,7 +38,7 @@ uv run python run.py
 
 ### Sequential Hiring (`simulations/sequential_hiring/`)
 
-Sequential hiring simulation where agents pick candidates one at a time. Reports fraction of available value captured for polyculture, monoculture, and ensemble.
+Sequential hiring simulation where agents pick candidates one at a time. Reports fraction of available value captured for polyculture, monoculture, and ensemble. Generates a plot to `plots/`.
 
 ```bash
 cd simulations/sequential_hiring
@@ -47,7 +47,7 @@ uv run python run.py
 
 ### Simultaneous Hiring (`simulations/simultaneous_hiring/`)
 
-Hiring simulation using deferred acceptance matching. Reports fraction of available value captured for polyculture, monoculture, and ensemble.
+Hiring simulation using deferred acceptance matching. Reports fraction of available value captured for polyculture, monoculture, and ensemble. Generates a plot to `plots/`.
 
 ```bash
 cd simulations/simultaneous_hiring

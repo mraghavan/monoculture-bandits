@@ -1,5 +1,7 @@
 import numpy as np
 import time
+import os
+import matplotlib.pyplot as plt
 from multiprocessing import Pool
 
 def simulate_setting(setting, n, k, t, p_true, k_initial):
@@ -169,18 +171,66 @@ def run_simulations(n_list, k, t, n_runs):
         
     return all_results
 
+def generate_plots(n_values, results, plots_dir='plots'):
+    os.makedirs(plots_dir, exist_ok=True)
+
+    plt.rcParams.update({
+        'font.size': 14,
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'xtick.labelsize': 14,
+        'ytick.labelsize': 14,
+        'legend.fontsize': 14,
+    })
+
+    conditions = ['monoculture', 'poly_fixed', 'poly_random', 'ensemble']
+    labels = ['Monoculture', 'Poly Fixed', 'Poly Random', 'Ensemble Monoculture']
+    line_styles_markers = [('-', 'o'), ('--', 's'), ('-.', '^'), ((0, (4, 1.5, 1, 1.5)), 'D')]
+    cmap = plt.get_cmap('cubehelix')
+    num_series = len(conditions)
+    series_colors = [
+        cmap(0.15 + (0.75 - 0.15) * i / (num_series - 1))
+        for i in range(num_series)
+    ]
+
+    for metric, ylabel, filename, title in [
+        ('avg_regret', 'Average Regret', 'hiring_bandit_regret.png', 'Hiring bandit: average regret'),
+        ('avg_mis', 'Average Misclassified Arms', 'hiring_bandit_misclassified.png', 'Hiring bandit: average misclassified arms'),
+    ]:
+        fig, ax = plt.subplots(figsize=(12, 7))
+
+        for condition, label, (linestyle, marker), color in zip(
+            conditions, labels, line_styles_markers, series_colors
+        ):
+            values = [results[n][condition][metric] for n in n_values]
+            ax.plot(n_values, values, marker=marker, linestyle=linestyle, label=label,
+                    color=color, markerfacecolor=color, markeredgecolor='black',
+                    markeredgewidth=1.6, markersize=7, linewidth=2.3)
+
+        ax.set_xlabel('$n$ (number of agents)')
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        ax.legend()
+        ax.grid(True)
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, filename), dpi=600)
+        plt.close(fig)
+        print(f"Generated plot: {os.path.join(plots_dir, filename)}")
+
+
 if __name__ == "__main__":
     n_values = [10, 30, 50, 70, 90]
     k = 100
     t = 200
-    n_runs = 1000 
-    
+    n_runs = 1000
+
     # Set global seed for reproducibility of seeds passed to workers
     np.random.seed(42)
-    
+
     # Actual run
     results = run_simulations(n_values, k, t, n_runs)
-    
+
     # Print results in a nice table
     print("\nResults Table (Average over 1000 runs):")
     print(f"{'n':<4} | {'Setting':<15} | {'Avg Regret':<12} | {'Avg Misclassified':<18}")
@@ -190,3 +240,5 @@ if __name__ == "__main__":
             res = results[n][setting]
             print(f"{n:<4} | {setting:<15} | {res['avg_regret']:<12.2f} | {res['avg_mis']:<18.2f}")
         print("-" * 55)
+
+    generate_plots(n_values, results)
