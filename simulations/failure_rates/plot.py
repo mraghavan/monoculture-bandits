@@ -57,7 +57,7 @@ def generate_plots():
 
             poly_groups = df[df['params.condition'] == 'polyculture'].groupby('params.num_agents')
             for num_agents, group in sorted(poly_groups, key=lambda item: int(item[0])):
-                plot_series.append((f'polyculture ($m={int(num_agents)}$)', group.sort_values('params.N0')))
+                plot_series.append((f'polyculture ($k={int(num_agents)}$)', group.sort_values('params.N0')))
 
             line_styles_markers = [
                 ('-', 'o'),
