@@ -1,8 +1,9 @@
 import numpy as np
 
 class Agent:
-    def __init__(self, num_arms=2, N0=1, bandit=None):
+    def __init__(self, num_arms=2, N0=1, bandit=None, rng=None):
         self.num_arms = num_arms
+        self.rng = rng
         # Beliefs are now initialized to zero for a frequentist approach.
         # Column 0: successes, Column 1: failures
         self.beliefs = np.zeros((num_arms, 2))
@@ -40,7 +41,9 @@ class Agent:
         best_arms = np.where(expected_rewards == max_reward)[0]
 
         # Randomly choose one of the best arms to break ties
-        return np.random.choice(best_arms)
+        if self.rng is None:
+            return np.random.choice(best_arms)
+        return self.rng.choice(best_arms)
 
     def update_belief(self, arm_index, reward):
         """

@@ -2,12 +2,12 @@ from src.bandit import Bandit
 from src.agent import Agent
 import numpy as np
 
-def simulate_monoculture(num_steps, N0, num_arms):
+def simulate_monoculture(num_steps, N0, num_arms, p_arms=None, rng=None):
     """
     Simulates a single agent interacting with a bandit for a fixed number of steps.
     """
-    bandit = Bandit(num_arms=num_arms)
-    agent = Agent(num_arms=num_arms, N0=N0, bandit=bandit)
+    bandit = Bandit(p_arms=p_arms, num_arms=num_arms, rng=rng)
+    agent = Agent(num_arms=num_arms, N0=N0, bandit=bandit, rng=rng)
 
     for _ in range(num_steps):
         arm = agent.choose_arm()
@@ -15,18 +15,18 @@ def simulate_monoculture(num_steps, N0, num_arms):
         agent.update_belief(arm, reward)
     return agent.choose_arm() == bandit.best_arm
 
-def simulate_polyculture(num_agents, num_steps, N0, num_arms):
+def simulate_polyculture(num_agents, num_steps, N0, num_arms, p_arms=None, rng=None):
     """
     Simulates multiple agents with independent priors who do not share information.
     The total number of pulls is `num_steps`, distributed among the agents.
     """
-    bandit = Bandit(num_arms=num_arms)
+    bandit = Bandit(p_arms=p_arms, num_arms=num_arms, rng=rng)
 
     # Progenitor agent establishes a common prior
-    progenitor = Agent(num_arms=num_arms, N0=N0, bandit=bandit)
+    progenitor = Agent(num_arms=num_arms, N0=N0, bandit=bandit, rng=rng)
     common_prior = progenitor.beliefs.copy() # Capture the prior after N0 pulls
 
-    agents = [Agent(num_arms=num_arms, N0=0) for _ in range(num_agents)]
+    agents = [Agent(num_arms=num_arms, N0=0, rng=rng) for _ in range(num_agents)]
     for agent in agents:
         agent.beliefs = common_prior.copy()
 
@@ -39,7 +39,7 @@ def simulate_polyculture(num_agents, num_steps, N0, num_arms):
 
     # Success is determined by an "all-seeing" agent who observes the
     # entire reward history.
-    omniscient_agent = Agent(num_arms=num_arms, N0=0)
+    omniscient_agent = Agent(num_arms=num_arms, N0=0, rng=rng)
 
     # Aggregate beliefs
     aggregated_beliefs = np.sum([agent.beliefs for agent in agents], axis=0)
